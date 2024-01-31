@@ -1,0 +1,7 @@
+# dune init project STLC .
+# OCAMLPARAM: unset
+# Shared cache: disabled
+# Shared cache location: /home/oweston/.cache/dune/db
+# Workspace root: "/home/oweston/Documents/Programming playgrounds/Simply Typed
+# Liv Calculus"
+# Auto-detected concurrency: 8
