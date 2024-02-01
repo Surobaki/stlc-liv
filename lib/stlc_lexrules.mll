@@ -9,6 +9,8 @@ rule tokenise = parse
     { LexNumber }
   | "true" | "false" | "True" | "False" | "TRUE" | "FALSE"
     { LexBool }
+  | "->"
+    { LexArrow }
   | '+'
     { LexAdd }
   | '-'
@@ -17,18 +19,18 @@ rule tokenise = parse
     { LexMult }
   | '/'
     { LexDiv }
-  | '<'
-    { LexLt }
   | '='
     { LexEq }
-  | "<="
-    { LexLe }
   | "!="
     { LexNeq }
-  | '>'
-    { LexGt }
+  | "<="
+    { LexLe }
+  | '<'
+    { LexLt }
   | ">="
     { LexGe }
+  | '>'
+    { LexGt }
   | "ifB"
     { LexIfBool }
   | "ifI"
@@ -39,5 +41,9 @@ rule tokenise = parse
     { LexLBracket }
   | ')'
     { LexRBracket }
+  | '\\'
+    { LexLambda }
+  | ':'
+    { LexBinderSeparator }
   | eof
     { LexEOF }
