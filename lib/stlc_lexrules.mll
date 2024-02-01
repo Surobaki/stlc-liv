@@ -6,7 +6,7 @@
 		| LexNeq | LexGt | LexGe
 		| LexIfBool | LexIfInt | LexLBracket
 		| LexRBracket | LexLambda | LexBinderSeparator
-		| LexArrow | LexEOF;;
+		| LexArrow | LexEOF ;;
 }
 
 rule tokenise = parse
