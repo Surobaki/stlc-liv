@@ -1,4 +1,5 @@
 {
+  (* This needs to be moved into the parser *)
   type livToken = LexNumber
 		| LexBool | LexVar | LexAdd
 		| LexSub | LexMult | LexDiv
