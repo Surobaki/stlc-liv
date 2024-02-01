@@ -78,3 +78,8 @@ flycheck_*.el
 
 # network security
 /network-security.data
+
+## Custom project ignores
+
+# Automatically generated OCaml lexrules from ocamllex
+lib/stlc_lexrules.ml
