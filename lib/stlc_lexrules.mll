@@ -1,5 +1,12 @@
 {
-  open LivToken
+  type livToken = LexNumber
+		| LexBool | LexVar | LexAdd
+		| LexSub | LexMult | LexDiv
+		| LexLt | LexLe | LexEq
+		| LexNeq | LexGt | LexGe
+		| LexIfBool | LexIfInt | LexLBracket
+		| LexRBracket | LexLambda | LexBinderSeparator
+		| LexArrow | LexEOF;;
 }
 
 rule tokenise = parse
