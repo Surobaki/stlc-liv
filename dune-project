@@ -19,7 +19,7 @@
  (name STLC)
  (synopsis "Implementation of Simply Typed Lambda Calculus")
  (description "A Simply Typed Lambda Calculus with an interpreter and type checker")
- (depends ocaml dune)
+ (depends ocaml dune ppx_inline_tests)
  (tags
   (topics "to describe" your project)))
 
