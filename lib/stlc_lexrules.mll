@@ -2,9 +2,9 @@
   open LivToken
 }
 
-rule token = parse
+rule tokenise = parse
   [' ' '\t' '\n']
-    { token lexbuf }
+    { tokenise lexbuf }
   | ['0'-'9']+
     { LexNumber }
   | "true" | "false" | "True" | "False" | "TRUE" | "FALSE"
