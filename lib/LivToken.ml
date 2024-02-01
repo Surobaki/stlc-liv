@@ -16,4 +16,7 @@ type livToken = LexNumber
               | LexIfInt
               | LexLBracket
               | LexRBracket
-              | LexEOF ;;
+              | LexLambda
+              | LexBinderSeparator
+              | LexArrow
+              | LexEOF;;
