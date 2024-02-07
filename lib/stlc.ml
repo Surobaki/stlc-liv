@@ -1,5 +1,5 @@
-type livTyp = Integer of livTyp
-            | Boolean of livTyp
+type livTyp = Integer
+            | Boolean
             | Arrow of livTyp * livTyp 
 
 type livConst = CInteger of int
@@ -11,5 +11,5 @@ type livBinder = string
 
 type livTerm = TConstant of livConst
              | TVariable of livVar
-             | TAbstract of livBinder * livTerm
+             | TAbstract of livBinder * livTyp * livTerm
              | TApplication of livTerm * livTerm
