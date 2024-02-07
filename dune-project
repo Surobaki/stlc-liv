@@ -1,4 +1,5 @@
 (lang dune 3.13)
+(using menhir 2.1)
 
 (name STLC)
 
@@ -19,7 +20,12 @@
  (name STLC)
  (synopsis "Implementation of Simply Typed Lambda Calculus")
  (description "A Simply Typed Lambda Calculus with an interpreter and type checker")
- (depends ocaml dune ppx_inline_tests)
+ (depends
+   ocaml
+   dune
+   ppx_inline_tests
+   menhir
+   )
  (tags
   (topics "to describe" your project)))
 

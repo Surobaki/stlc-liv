@@ -1,57 +1,36 @@
 {
-  (* This needs to be moved into the parser *)
-  type livToken = LexNumber
-		| LexBool | LexVar | LexAdd
-		| LexSub | LexMult | LexDiv
-		| LexLt | LexLe | LexEq
-		| LexNeq | LexGt | LexGe
-		| LexIfBool | LexIfInt | LexLBracket
-		| LexRBracket | LexLambda | LexBinderSeparator
-		| LexArrow | LexEOF ;;
+  open stlc_parser
+
+  (*
+     Plundered from
+     https://github.com/SimonJF/mbcheck/blob/main/lib/frontend/lexer.mll
+  *)
+  let def_id = (['a'-'z' 'A'-'Z'] ['a'-'z' 'A'-'Z' '_' '0'-'9' '\'']*)
+  let def_white = [' ' '\t']+
+  let def_newline = '\r' | '\n' | "\r\n"
+  let def_integer = (['1'-'9'] ['0'-'9']* | '0')
+  let def_float = (def_integer '.' ['0'-'9']+ ('e' ('-')? def_integer)?)
 }
 
 rule tokenise = parse
-  [' ' '\t' '\n']
+  | def_white
     { tokenise lexbuf }
-  | ['0'-'9']+
-    { LexNumber }
+  | def_newline
+    { next_line lexbuf; tokenise lexbuf }
+  | def_Integer { INT (int_of_string (Lexing.lexeme lexbuf)) }
   | "true" | "false" | "True" | "False" | "TRUE" | "FALSE"
-    { LexBool }
+    { BOOL }
   | "->"
-    { LexArrow }
-  | '+'
-    { LexAdd }
-  | '-'
-    { LexSub }
-  | '*'
-    { LexMult }
-  | '/'
-    { LexDiv }
-  | '='
-    { LexEq }
-  | "!="
-    { LexNeq }
-  | "<="
-    { LexLe }
-  | '<'
-    { LexLt }
-  | ">="
-    { LexGe }
-  | '>'
-    { LexGt }
-  | "ifB"
-    { LexIfBool }
-  | "ifI"
-    { LexIfInt }
-  | ['a'-'z''A'-'Z']+
-    { LexVar }
+    { ARROW }
+  | def_id as var 
+    { VAR }
   | '('
-    { LexLBracket }
+    { LPAREN }
   | ')'
-    { LexRBracket }
+    { RPAREN }
   | '\\'
-    { LexLambda }
+    { LAMBDA }
   | ':'
-    { LexBinderSeparator }
+    { COLON }
   | eof
     { LexEOF }
