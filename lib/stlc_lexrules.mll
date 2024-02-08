@@ -38,6 +38,26 @@ rule tokenise = parse
     { TYINT }
   | "Bool"
     { TYBOOL }
+  | '+'
+    { PLUS }
+  | '-'
+    { MINUS }
+  | '*'
+    { STAR }
+  | '/'
+    { FSLASH }
+  | ">="
+    { GE }
+  | '>'
+    { GT }
+  | "=="
+    { EQ }
+  | "!="
+    { NEQ }
+  | "<="
+    { LE }
+  | '<'
+    { LT }
   | def_id as var 
     { VARIABLE var }
   | '('
