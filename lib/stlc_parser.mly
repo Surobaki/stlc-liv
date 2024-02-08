@@ -42,25 +42,26 @@ expr:
   | e = basic_expr { e }
 
 basic_expr:
-  (* App *)
-  | e1 = fact e2 = basic_expr { TApplication (e1, e2) }
   (* Lam *)
   | LAMBDA v = VARIABLE COLON t = ty DOT e = basic_expr
     { TAbstract (v, t, e) }
-  | f = fact { f }
+  (* App *)
+  | e1 = fact e2 = basic_expr { TApplication (e1, e2) }
+  (* Binary operators *)
   | o = operator { o }
 
 operator:
-  | e1 = basic_expr LT e2 = basic_expr     { TBinOp (Lt, e1, e2) }
-  | e1 = basic_expr LE e2 = basic_expr     { TBinOp (Le, e1, e2) }
-  | e1 = basic_expr GT e2 = basic_expr     { TBinOp (Gt, e1, e2) }
-  | e1 = basic_expr GE e2 = basic_expr     { TBinOp (Ge, e1, e2) }
-  | e1 = basic_expr EQ e2 = basic_expr     { TBinOp (Eq, e1, e2) }
-  | e1 = basic_expr NEQ e2 = basic_expr    { TBinOp (Neq, e1, e2) }
-  | e1 = basic_expr PLUS e2 = basic_expr   { TBinOp (Plus, e1, e2) }
-  | e1 = basic_expr MINUS e2 = basic_expr  { TBinOp (Minus, e1, e2) }
-  | e1 = basic_expr STAR e2 = basic_expr   { TBinOp (Mult, e1, e2) }
-  | e1 = basic_expr FSLASH e2 = basic_expr { TBinOp (Div, e1, e2) }
+  | e1 = operator LT e2 = operator     { TBinOp (Lt, e1, e2) }
+  | e1 = operator LE e2 = operator     { TBinOp (Le, e1, e2) }
+  | e1 = operator GT e2 = operator     { TBinOp (Gt, e1, e2) }
+  | e1 = operator GE e2 = operator     { TBinOp (Ge, e1, e2) }
+  | e1 = operator EQ e2 = operator     { TBinOp (Eq, e1, e2) }
+  | e1 = operator NEQ e2 = operator    { TBinOp (Neq, e1, e2) }
+  | e1 = operator PLUS e2 = operator   { TBinOp (Plus, e1, e2) }
+  | e1 = operator MINUS e2 = operator  { TBinOp (Minus, e1, e2) }
+  | e1 = operator STAR e2 = operator   { TBinOp (Mult, e1, e2) }
+  | e1 = operator FSLASH e2 = operator { TBinOp (Div, e1, e2) }
+  | f = fact { f }
 
 fact:
   | b = BOOL { TConstant (CBoolean b) }
