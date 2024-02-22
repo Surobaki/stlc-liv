@@ -69,6 +69,7 @@ fact:
   | v = VARIABLE { TVariable v }
   (* Constant *)
   | i = INT { TConstant (CInteger i) }
+  (* Parenthesised expression *)
   | LPAREN e = expr RPAREN { e }
 
 (* Type parser *)
