@@ -19,4 +19,4 @@ Check `dune-project`. At the moment this project uses:
 4. The type checker can be found in `lib/typechecker.ml`(`.mli`).
 
 # Credit
-A lot of this stuff is for my PhD at University of Glasgow, so a lot of this stuff is copypasted from my supervisor's project. For a more refined look at various typing practices I recommend looking at [Simon Fowler's type-system-implementations](https://github.com/SimonJF/type-system-implementations) and [Simon's typechecker for mailbox typing in Pat](https://github.com/SimonJF/mbcheck).
+A lot of this is for my PhD at University of Glasgow, so a lot of it is copypasted from my supervisor's project. For a more refined look at various typing practices I recommend looking at [Simon Fowler's type-system-implementations](https://github.com/SimonJF/type-system-implementations) and [Simon's typechecker for mailbox typing in Pat](https://github.com/SimonJF/mbcheck).
