@@ -24,6 +24,6 @@
    menhir
    )
  (tags
-  (topics "to describe" your project)))
+  (topics pl pldi stlc "lambda calculus" typechecker interpreter)))
 
 ; See the complete stanza docs at https://dune.readthedocs.io/en/stable/dune-files.html#dune-project
