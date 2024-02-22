@@ -25,6 +25,7 @@ setup.log
 
 # Dune generated files
 *.install
+STLC.opam
 
 # Local OPAM switch
 _opam/
