@@ -1,6 +1,12 @@
 # Olivia's Simply Typed Lambda Calculus
 Hi! This is the repository which contains my experiments with writing the Simply Typed Lambda Calculus and its many facets.
 
+# Dependencies
+Check `dune-project`. At the moment this project uses:
+- `menhir` (parsing)
+- `ocamllex` (lexing)
+- `ppx_deriving.show` (easy pretty printing of AST)
+
 # Roadmap / Ideamap
 1. ~~Write core constructions of STLC using OCaml.~~
 2. Write a substitution based interpreter.
