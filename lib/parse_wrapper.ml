@@ -1,6 +1,7 @@
 open Errors
 open Stlc_lexrules
 open Lexing
+open Typechecker
 
 let print_position ppf lexbuf =
   let pos = lexbuf.lex_curr_p in
@@ -29,3 +30,11 @@ let parse_string x =
   lexbuf.lex_curr_p <- { lexbuf.lex_curr_p with pos_fname = "<string>" };
   let expr = parse_with_error lexbuf in
   expr
+    
+let parse_typecheck_file filename = 
+  let ast = parse_file filename in
+  typecheck [] ast
+    
+let parse_typecheck_string x =
+  let ast = parse_string x in
+  typecheck [] ast
