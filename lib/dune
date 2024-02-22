@@ -1,9 +1,10 @@
 (ocamllex
-  (modules stlc_lexrules))
+  (modules stlc_lexrules)
+)
 (menhir
   (modules stlc_parser)
 )
 (library
   (name STLC)
-  (inline_tests)
-  (preprocess (pps ppx_inline_test)))
+  (preprocess (pps ppx_deriving.show))
+)

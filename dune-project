@@ -14,8 +14,6 @@
 
 (license LICENSE)
 
-(documentation https://url/to/documentation)
-
 (package
  (name STLC)
  (synopsis "Implementation of Simply Typed Lambda Calculus")
@@ -23,7 +21,6 @@
  (depends
    ocaml
    dune
-   ppx_inline_tests
    menhir
    )
  (tags
