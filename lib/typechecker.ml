@@ -13,7 +13,7 @@ let rec typecheck env tm =
   | TVariable var -> 
     (match (List.assq_opt var env) with
      | Some typ -> typ
-     | None -> raise _CTXT_VAR_NOT_FOUND_ERR)
+     | None -> (Errors.print_raise_exn _CTXT_VAR_NOT_FOUND_ERR))
   | TAbstract (bind, typ, tm') -> 
     let enrichedEnv = (List.cons (bind, typ) env) in 
     let tm'Typ = typecheck enrichedEnv tm' in
@@ -26,8 +26,8 @@ let rec typecheck env tm =
                 if firstArg == tm2Typ then
                 Arrow (tm1Typ, tm2Typ)
                 else
-                raise _APP_ARG_ERR
-         | _ -> raise _NONFUNC_APP_ERR)
+                (Errors.print_raise_exn _APP_ARG_ERR)
+         | _ -> (Errors.print_raise_exn _NONFUNC_APP_ERR))
   | TBinOp (op, tm1, tm2) ->
     (match op with
      | Plus | Minus | Mult | Div ->
@@ -35,16 +35,16 @@ let rec typecheck env tm =
        let tm2Typ = typecheck env tm2 in
          (match tm1Typ, tm2Typ with
           | Integer, Integer -> Integer
-          | _ -> raise _OP_ARG_ERR)
+          | _ -> (Errors.print_raise_exn _OP_ARG_ERR))
      | Lt | Le | Gt | Ge ->
        let tm1Typ = typecheck env tm1 in
        let tm2Typ = typecheck env tm2 in
          (match tm1Typ, tm2Typ with
           | Integer, Integer -> Boolean
-          | _ -> raise _OP_ARG_ERR)
+          | _ -> (Errors.print_raise_exn _OP_ARG_ERR))
      | Eq | Neq ->
        let tm1Typ = typecheck env tm1 in
        let tm2Typ = typecheck env tm2 in
          if tm1Typ == tm2Typ then Boolean
-                             else raise _OP_ARG_ERR)
+                             else (Errors.print_raise_exn _OP_ARG_ERR))
                    
