@@ -11,7 +11,7 @@ let rec typecheck env tm =
                       | CInteger _ -> Integer
                       | CBoolean _ -> Boolean)
   | TVariable var -> 
-    (match (List.assq_opt var env) with
+    (match (List.assoc_opt var env) with
      | Some typ -> typ
      | None -> (Errors.print_raise_exn _CTXT_VAR_NOT_FOUND_ERR))
   | TAbstract (bind, typ, tm') -> 
@@ -22,9 +22,9 @@ let rec typecheck env tm =
       let tm1Typ = typecheck env tm1 in
       let tm2Typ = typecheck env tm2 in
         (match tm1Typ with
-         | Arrow (firstArg, _) -> 
-                if firstArg == tm2Typ then
-                Arrow (tm1Typ, tm2Typ)
+         | Arrow (firstArg, sndArg) -> 
+                if firstArg = tm2Typ then
+                  sndArg
                 else
                 (Errors.print_raise_exn _APP_ARG_ERR)
          | _ -> (Errors.print_raise_exn _NONFUNC_APP_ERR))
