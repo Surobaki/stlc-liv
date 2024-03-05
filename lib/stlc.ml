@@ -34,3 +34,11 @@ type livTerm = TConstant of livConst
 (* Typing environment *)
 type livEnv = (livVar * livTyp) list 
               [@@deriving show]
+    
+(* Values for evaluation *)
+type gremVal = VInteger of int
+             | VBoolean of bool
+             | VClosure of livBinder * livTerm * gremEnv
+(* Evaluation environment *)
+and gremEnv = (livVar * gremVal) list
+              [@@deriving show]
