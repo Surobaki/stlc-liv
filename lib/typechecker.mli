@@ -1,4 +1,4 @@
-val typecheck :
-  Stlc.livEnv
+val robTypecheck :
+  Stlc.robEnv
   -> Stlc.livTerm
   -> Stlc.livTyp

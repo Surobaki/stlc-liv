@@ -33,8 +33,8 @@ let parse_string x =
     
 let parse_typecheck_file filename = 
   let ast = parse_file filename in
-  typecheck [] ast
+  robTypecheck [] ast
     
 let parse_typecheck_string x =
   let ast = parse_string x in
-  typecheck [] ast
+  robTypecheck [] ast

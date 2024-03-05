@@ -32,7 +32,7 @@ type livTerm = TConstant of livConst
              [@@deriving show]
 
 (* Typing environment *)
-type livEnv = (livVar * livTyp) list 
+type robEnv = (livVar * livTyp) list 
               [@@deriving show]
     
 (* Values for evaluation *)
