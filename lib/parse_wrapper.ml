@@ -1,7 +1,9 @@
 open Errors
+open Stlc
 open Stlc_lexrules
 open Lexing
 open Typechecker
+open Interpreter
 
 let print_position ppf lexbuf =
   let pos = lexbuf.lex_curr_p in
@@ -31,10 +33,32 @@ let parse_string x =
   let expr = parse_with_error lexbuf in
   expr
     
-let parse_typecheck_file filename = 
+let typecheck_file env filename =
   let ast = parse_file filename in
-  robTypecheck [] ast
+  robTypecheck env ast
     
-let parse_typecheck_string x =
+let typecheck_string env x =
   let ast = parse_string x in
-  robTypecheck [] ast
+  robTypecheck env ast
+    
+let eval_file env filename =
+  let ast = parse_file filename in
+  gremEval env ast
+
+let eval_string env x =
+  let ast = parse_string x in
+  gremEval env ast
+
+(* The full treatment is when you go to a salon
+   and get your hair parsed, typechecked and evaluated. *)
+let full_treatment_file ?(typEnv = []) ?(evalEnv = []) filename =
+  let ast = parse_file filename in
+  let resultType = typecheck_file typEnv filename in
+  print_endline (show_livTyp resultType); 
+    print_endline (show_gremVal (gremEval evalEnv ast))
+
+let full_treatment_string ?(typEnv = []) ?(evalEnv = []) x =
+  let ast = parse_string x in
+  let resultType = typecheck_string typEnv x in
+  print_endline (show_livTyp resultType); 
+    print_endline (show_gremVal (gremEval evalEnv ast))
