@@ -1,0 +1,10 @@
+val (+) : Stlc.gremVal -> Stlc.gremVal -> Stlc.gremVal
+val (-) : Stlc.gremVal -> Stlc.gremVal -> Stlc.gremVal
+val (+*) : Stlc.gremVal -> Stlc.gremVal -> Stlc.gremVal
+val (/) : Stlc.gremVal -> Stlc.gremVal -> Stlc.gremVal
+val (>) : Stlc.gremVal -> Stlc.gremVal -> Stlc.gremVal
+val (>=) : Stlc.gremVal -> Stlc.gremVal -> Stlc.gremVal
+val (<) : Stlc.gremVal -> Stlc.gremVal -> Stlc.gremVal
+val (<=) : Stlc.gremVal -> Stlc.gremVal -> Stlc.gremVal
+val (=) : Stlc.gremVal -> Stlc.gremVal -> Stlc.gremVal
+val (<>) : Stlc.gremVal -> Stlc.gremVal -> Stlc.gremVal
