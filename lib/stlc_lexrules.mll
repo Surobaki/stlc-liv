@@ -58,6 +58,10 @@ rule tokenise = parse
     { LE }
   | '<'
     { LT }
+  | "let"
+    { LET }
+  | "in"
+    { IN }
   | def_id as var 
     { VARIABLE var }
   | '('
@@ -66,6 +70,8 @@ rule tokenise = parse
     { RPAREN }
   | '\\'
     { LAMBDA }
+  | '='
+    { EQUALS }
   | ':'
     { COLON }
   | '.'

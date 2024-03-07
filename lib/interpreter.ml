@@ -22,6 +22,10 @@ let rec gremEval env tm =
        let closedEnv = List.cons (bind, tm2') tm1'Env in
        gremEval closedEnv tm1''
      | _ -> raise _NONFUNC_APP_ERR)
+  | TLet (bind, bndTm, coreTm) ->
+    let bndTmVal = gremEval env bndTm in
+    let extendedEnv = List.cons (bind, bndTmVal) env in
+    gremEval extendedEnv coreTm
   | TBinOp (op, tm1, tm2) ->
     let tm1Val = gremEval env tm1 in
     let tm2Val = gremEval env tm2 in

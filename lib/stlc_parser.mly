@@ -15,6 +15,9 @@
 %token LAMBDA
 %token ARROW
 %token EOF
+%token LET
+%token EQUALS
+%token IN
 
 %token PLUS MINUS STAR FSLASH
 %token GE GT LE LT EQ NEQ
@@ -49,6 +52,9 @@ basic_expr:
   | e1 = fact e2 = basic_expr { TApplication (e1, e2) }
   (* Binary operators *)
   | o = operator { o }
+  (* Let bindings *)
+  | LET bnd = VARIABLE EQUALS bndTm = basic_expr IN coreTm = basic_expr 
+    { TLet (bnd, bndTm, coreTm) }
 
 operator:
   | e1 = operator LT e2 = operator     { TBinOp (Lt, e1, e2) }

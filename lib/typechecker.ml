@@ -47,4 +47,9 @@ let rec robTypecheck env tm =
        let tm2Typ = robTypecheck env tm2 in
          if tm1Typ == tm2Typ then Boolean
                              else (Errors.print_raise_exn _OP_ARG_ERR))
+  | TLet (bind, bndTm, coreTm) ->
+    let bndTmTyp = robTypecheck env bndTm in
+    let enrichedEnv = List.cons (bind, bndTmTyp) env in
+    robTypecheck enrichedEnv coreTm
+    
                    
