@@ -32,28 +32,15 @@
 %%
 
 expr:
-    (* Let *)
-(*
-  Not using let atm
-    | LET VARIABLE type_annot? EQ expr IN expr
-        { Let { binder = $2; annot = $3; term = $5; body = $7 } }
-    | LET LEFT_PAREN VARIABLE COMMA VARIABLE RIGHT_PAREN EQ basic_expr IN expr
-        { LetPair { binders = ($3, $5); term = $8; cont = $10 } }
-    | basic_expr SEMICOLON expr { Seq ($1, $3) }
-    | basic_expr COLON ty { Annotate ($1, $3) }
-*)
-  | e = basic_expr { e }
-
-basic_expr:
   (* Lam *)
-  | LAMBDA v = VARIABLE COLON t = ty DOT e = basic_expr
+  | LAMBDA v = VARIABLE COLON t = ty DOT e = expr
     { TAbstract (v, t, e) }
   (* App *)
-  | e1 = fact e2 = basic_expr { TApplication (e1, e2) }
+  | e1 = fact e2 = expr { TApplication (e1, e2) }
   (* Binary operators *)
   | o = operator { o }
   (* Let bindings *)
-  | LET bnd = VARIABLE EQUALS bndTm = basic_expr IN coreTm = basic_expr 
+  | LET bnd = VARIABLE EQUALS bndTm = expr IN coreTm = expr 
     { TLet (bnd, bndTm, coreTm) }
 
 operator:
