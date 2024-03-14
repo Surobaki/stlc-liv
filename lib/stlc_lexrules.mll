@@ -58,6 +58,8 @@ rule tokenise = parse
     { LE }
   | '<'
     { LT }
+  | "fix"
+    { FIX }
   | "let"
     { LET }
   | "in"

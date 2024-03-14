@@ -17,14 +17,17 @@ let rec gremEval env tm =
   | TApplication (tm1, tm2) ->
     let tm1' = gremEval env tm1 in
     let tm2' = gremEval env tm2 in
-    (match tm1' with 
-     | VClosure (bind, tm1'', tm1'Env) ->
-       let closedEnv = List.cons (bind, tm2') tm1'Env in
-       gremEval closedEnv tm1''
-     | _ -> raise _NONFUNC_APP_ERR)
+    let (bind, tm1'', tm1'Env) = unpackClosure tm1' in
+    let closedEnv = ((bind, tm2') :: tm1'Env) in
+    gremEval closedEnv tm1''
+  | TFix (tm', _) ->
+    let tm'Val = gremEval env tm' in
+    let (bnd, tm'', env') = unpackClosure tm'Val in
+    let extendedEnv = ((bnd, VClosure (bnd, tm'', env')) :: env') in
+    gremEval extendedEnv tm''
   | TLet (bind, bndTm, coreTm) ->
     let bndTmVal = gremEval env bndTm in
-    let extendedEnv = List.cons (bind, bndTmVal) env in
+    let extendedEnv = ((bind, bndTmVal) :: env) in
     gremEval extendedEnv coreTm
   | TBinOp (op, tm1, tm2) ->
     let tm1Val = gremEval env tm1 in
@@ -40,6 +43,4 @@ let rec gremEval env tm =
      | Ge -> tm1Val >= tm2Val
      | Eq -> tm1Val = tm2Val
      | Neq -> tm1Val <> tm2Val)
-
-
     

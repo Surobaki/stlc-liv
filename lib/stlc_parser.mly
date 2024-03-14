@@ -18,6 +18,7 @@
 %token LET
 %token EQUALS
 %token IN
+%token FIX
 
 %token PLUS MINUS STAR FSLASH
 %token GE GT LE LT EQ NEQ
@@ -42,6 +43,8 @@ expr:
   (* Let bindings *)
   | LET bnd = VARIABLE EQUALS bndTm = expr IN coreTm = expr 
     { TLet (bnd, bndTm, coreTm) }
+  (* Fixed points *)
+  | FIX e = expr COLON t = ty { TFix (e, t) }
 
 operator:
   | e1 = operator LT e2 = operator     { TBinOp (Lt, e1, e2) }
