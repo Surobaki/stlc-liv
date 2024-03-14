@@ -4,6 +4,19 @@ open Interpreter_aux
 let _ENV_VAR_NOT_FOUND_ERR = Errors.Runtime_error ("Failed to find bound value for variable identifier.")
 let _NONFUNC_APP_ERR = Errors.Runtime_error ("Non-functional application.")
 
+let binEval op v1 v2 =
+  match op with
+  | Plus -> v1 + v2
+  | Minus -> v1 - v2
+  | Mult -> v1 +* v2
+  | Div -> v1 / v2
+  | Lt -> v1 < v2
+  | Le -> v1 <= v2
+  | Gt -> v1 > v2
+  | Ge -> v1 >= v2
+  | Eq -> v1 = v2
+  | Neq -> v1 <> v2
+
 let rec gremEval env tm = 
   match tm with
   | TConstant (CInteger i) -> VInteger i
@@ -32,15 +45,5 @@ let rec gremEval env tm =
   | TBinOp (op, tm1, tm2) ->
     let tm1Val = gremEval env tm1 in
     let tm2Val = gremEval env tm2 in
-    (match op with
-     | Plus -> tm1Val + tm2Val
-     | Minus -> tm1Val - tm2Val
-     | Mult -> tm1Val +* tm2Val
-     | Div -> tm1Val / tm2Val
-     | Lt -> tm1Val < tm2Val
-     | Le -> tm1Val <= tm2Val
-     | Gt -> tm1Val > tm2Val
-     | Ge -> tm1Val >= tm2Val
-     | Eq -> tm1Val = tm2Val
-     | Neq -> tm1Val <> tm2Val)
+    binEval op tm1Val tm2Val
     
