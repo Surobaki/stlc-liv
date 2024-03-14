@@ -42,6 +42,10 @@ let rec gremEval env tm =
     let bndTmVal = gremEval env bndTm in
     let extendedEnv = ((bind, bndTmVal) :: env) in
     gremEval extendedEnv coreTm
+  | TIf (tm1, tm2, tm3) ->
+    let tm1Bool = unpackBoolean (gremEval env tm1) in
+    if tm1Bool then gremEval env tm2
+    else gremEval env tm3
   | TBinOp (op, tm1, tm2) ->
     let tm1Val = gremEval env tm1 in
     let tm2Val = gremEval env tm2 in

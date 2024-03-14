@@ -64,6 +64,12 @@ rule tokenise = parse
     { LET }
   | "in"
     { IN }
+  | "if"
+    { IF }
+  | "then"
+    { THEN }
+  | "else"
+    { ELSE }
   | def_id as var 
     { VARIABLE var }
   | '('

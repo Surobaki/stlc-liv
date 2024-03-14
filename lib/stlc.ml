@@ -29,6 +29,7 @@ type livTerm = TConstant of livConst
              | TApplication of livTerm * livTerm
              | TLet of livBinder * livTerm * livTerm
              | TFix of livTerm * livTyp
+             | TIf of livTerm * livTerm * livTerm
              | TBinOp of livBinOp * livTerm * livTerm
              (* Technically binary operators are constants in the language *)
              [@@deriving show]

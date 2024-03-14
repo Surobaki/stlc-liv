@@ -19,6 +19,9 @@
 %token EQUALS
 %token IN
 %token FIX
+%token IF
+%token THEN
+%token ELSE
 
 %token PLUS MINUS STAR FSLASH
 %token GE GT LE LT EQ NEQ
@@ -45,6 +48,8 @@ expr:
     { TLet (bnd, bndTm, coreTm) }
   (* Fixed points *)
   | FIX e = expr COLON t = ty { TFix (e, t) }
+  (* Conditional flow *)
+  | IF e1 = expr THEN e2 = expr ELSE e3 = expr { TIf (e1, e2, e3) }
 
 operator:
   | e1 = operator LT e2 = operator     { TBinOp (Lt, e1, e2) }
