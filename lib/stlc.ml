@@ -1,5 +1,22 @@
+(* Co-contextual type variables *)
+module TyVar = struct
+  type t = string
+  let source = ref 0
+  
+  let reset () = source := 0
+
+  let fresh ?(prefix="_") () =
+    let sym = !source in
+    let () = incr source in
+    prefix ^ (string_of_int sym)
+  
+  let pp = Format.pp_print_string
+end
+[@@deriving show]
+
 (* STLC type universe *)
-type livTyp = Integer
+type livTyp = TypeVar of TyVar.t
+            | Integer
             | Boolean
             | Arrow of livTyp * livTyp 
             [@@deriving show]
@@ -27,6 +44,7 @@ type livTerm = TConstant of livConst
              | TVariable of livVar
              | TAbstract of livBinder * livTyp * livTerm
              | TApplication of livTerm * livTerm
+             (* Base of STLC *)
              | TLet of livBinder * livTerm * livTerm
              | TFix of livTerm * livTyp
              | TIf of livTerm * livTerm * livTerm
@@ -45,3 +63,14 @@ type gremVal = VInteger of int
 (* Evaluation environment *)
 and gremEnv = (livVar * gremVal) list
               [@@deriving show]
+
+module TypeConstraints = Set.Make (struct
+  type t = livTyp * livTyp
+  let compare e1 e2 = Stdlib.compare e1 e2
+end)
+
+module TypeRequirements = Set.Make (struct
+  type t = TyVar.t * livTyp
+  let compare e1 e2 = Stdlib.compare (fst e1) (fst e2)
+end)
+
