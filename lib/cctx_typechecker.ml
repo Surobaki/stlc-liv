@@ -66,7 +66,19 @@ let rec ccTypecheck tm =
     let outCst = TypeConstraints.union (TypeConstraints.union tm1Cst tm2Cst)
                                        (TypeConstraints.union appCst cst12) in
     (freshTyp, req12, outCst)
-  | TLet (_, _, _) -> (Integer, TypeRequirements.empty, TypeConstraints.empty)
+  | TLet (bnd, bndTm, coreTm) -> 
+    let (bndTyp, bndReq, bndCst) = ccTypecheck bndTm in
+    let (coreTyp, coreReq, coreCst) = ccTypecheck coreTm in
+    let bndReqList = TypeRequirements.to_list bndReq in
+    let extensionCst = (match (List.assoc_opt bnd bndReqList) with
+                       | Some typ -> TypeConstraints.singleton (bndTyp, typ)
+                       | None -> TypeConstraints.empty) in
+    let outReq = TypeRequirements.filter 
+                   (fun x -> match x with (b, _) -> not (b = bnd)) 
+                   coreReq in
+    let outCst = TypeConstraints.union (TypeConstraints.union bndCst coreCst)
+                                       extensionCst in
+    (coreTyp, outReq, outCst)
   | TIf (tm1, tm2, tm3) ->
     let (tm1Typ, tm1Req, tm1Cst) = ccTypecheck tm1 in
     let (tm2Typ, tm2Req, tm2Cst) = ccTypecheck tm2 in
