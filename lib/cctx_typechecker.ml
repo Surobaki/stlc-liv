@@ -99,5 +99,26 @@ let rec ccTypecheck tm =
                    (typ, Arrow (freshTyp, freshTyp)) in
     let outCst = TypeConstraints.union newCst tmCst in
     (freshTyp, tmReq, outCst)
-  | TBinOp (_, _, _) -> (Integer, TypeRequirements.empty, TypeConstraints.empty)
-
+  | TBinOp (op, tm1, tm2) -> 
+    let (tm1Typ, tm1Req, tm1Cst) = ccTypecheck tm1 in
+    let (tm2Typ, tm2Req, tm2Cst) = ccTypecheck tm2 in
+    let tm12Req = TypeRequirements.union tm1Req tm2Req in
+    let tm12Cst = TypeConstraints.union tm1Cst tm2Cst in
+    (match op with
+    | Plus | Minus | Mult | Div ->
+      let arithCst1 = TypeConstraints.singleton (tm1Typ, Integer) in
+      let arithCst2 = TypeConstraints.singleton (tm2Typ, Integer) in
+      let arithCst12 = TypeConstraints.union arithCst1 arithCst2 in
+      let outCst = TypeConstraints.union tm12Cst arithCst12 in
+      (Integer, tm12Req, outCst)
+    | Lt | Le | Gt | Ge ->
+      let relCst1 = TypeConstraints.singleton (tm1Typ, Integer) in
+      let relCst2 = TypeConstraints.singleton (tm2Typ, Integer) in
+      let relCst12 = TypeConstraints.union relCst1 relCst2 in
+      let outCst = TypeConstraints.union tm12Cst relCst12 in
+      (Boolean, tm12Req, outCst)
+    | Eq | Neq ->
+      let eqCst = TypeConstraints.singleton (tm1Typ, tm2Typ) in
+      let outCst = TypeConstraints.union tm12Cst eqCst in
+      (Boolean, tm12Req, outCst)
+    )
