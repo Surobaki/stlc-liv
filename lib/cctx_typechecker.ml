@@ -1,4 +1,8 @@
 open Stlc
+
+let _OP_ARG_ERR = Errors.Type_error ("Failed to match argument of operator with expected type.")
+
+type cctxOut = (livTyp * TypeRequirements.t * TypeConstraints.t)
     
 module StringSet = Set.Make (String)
     
