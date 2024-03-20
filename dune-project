@@ -19,7 +19,7 @@
  (synopsis "Implementation of Simply Typed Lambda Calculus")
  (description "A Simply Typed Lambda Calculus with an interpreter and type checker")
  (depends
-   ocaml
+   (ocaml (>= 5.3))
    dune
    menhir
    )
