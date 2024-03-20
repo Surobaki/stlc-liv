@@ -38,24 +38,20 @@ let rec robTypecheck env tm =
     if t2 = typ then t2
     else raise _FIX_ARG_ERR
   | TBinOp (op, tm1, tm2) ->
+    let tm1Typ = robTypecheck env tm1 in
+    let tm2Typ = robTypecheck env tm2 in
     (match op with
      | Plus | Minus | Mult | Div ->
-       let tm1Typ = robTypecheck env tm1 in
-       let tm2Typ = robTypecheck env tm2 in
-         (match tm1Typ, tm2Typ with
-          | Integer, Integer -> Integer
-          | _ -> raise _OP_ARG_ERR)
+       (match tm1Typ, tm2Typ with
+       | Integer, Integer -> Integer
+       | _ -> raise _OP_ARG_ERR)
      | Lt | Le | Gt | Ge ->
-       let tm1Typ = robTypecheck env tm1 in
-       let tm2Typ = robTypecheck env tm2 in
-         (match tm1Typ, tm2Typ with
-          | Integer, Integer -> Boolean
-          | _ -> raise _OP_ARG_ERR)
+       (match tm1Typ, tm2Typ with
+       | Integer, Integer -> Boolean
+       | _ -> raise _OP_ARG_ERR)
      | Eq | Neq ->
-       let tm1Typ = robTypecheck env tm1 in
-       let tm2Typ = robTypecheck env tm2 in
-         if tm1Typ = tm2Typ then Boolean
-         else raise _OP_ARG_ERR)
+       if tm1Typ = tm2Typ then Boolean
+       else raise _OP_ARG_ERR)
   | TLet (bind, bndTm, coreTm) ->
     let bndTmTyp = robTypecheck env bndTm in
     let enrichedEnv = ((bind, bndTmTyp) :: env) in
