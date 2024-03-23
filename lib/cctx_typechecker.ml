@@ -65,7 +65,7 @@ let reqMerge (req1 : 'a TypR.t) (req2 : 'a TypR.t) : 'a TypR.t * TypC.t =
                          (fun acc (_, (_, cst)) -> if not (cst = (%.)) 
                                                    then TypC.union acc cst
                                                    else acc)
-                         TypC.empty malformedMerge i
+                         TypC.empty malformedMerge in
   (fixedUpMerge, extraConstraints)
 
 (* Feels like you could rework this into something monadic. *)
