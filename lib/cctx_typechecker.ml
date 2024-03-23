@@ -62,8 +62,10 @@ let reqMerge (req1 : 'a TypR.t) (req2 : 'a TypR.t) : 'a TypR.t * TypC.t =
                                                  (key, reqs)) 
                                             malformedMerge) in
   let extraConstraints = List.fold_left 
-                         (fun acc (_, (_, cst)) -> TypC.union acc cst)
-                         TypC.empty malformedMerge in
+                         (fun acc (_, (_, cst)) -> if not (cst = (%.)) 
+                                                   then TypC.union acc cst
+                                                   else acc)
+                         TypC.empty malformedMerge i
   (fixedUpMerge, extraConstraints)
 
 (* Feels like you could rework this into something monadic. *)
