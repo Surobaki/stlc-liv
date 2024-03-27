@@ -64,13 +64,13 @@ type gremVal = VInteger of int
 and gremEnv = (livVar * gremVal) list
               [@@deriving show]
 
-module TypeConstraints = Set.Make (struct
+module TypC = Set.Make (struct
   type t = livTyp * livTyp
-  let compare e1 e2 = Stdlib.compare e1 e2
+  let compare e1 e2 = Stdlib.compare (fst e1) (fst e2)
 end)
 
-module TypeRequirements = Set.Make (struct
-  type t = TyVar.t * livTyp
-  let compare e1 e2 = Stdlib.compare (fst e1) (fst e2)
+module TypR = Map.Make (struct
+  type t = livBinder
+  let compare e1 e2 = String.compare e1 e2
 end)
 

@@ -1,12 +1,12 @@
 open Stlc
 
-type cctxOut = (livTyp * TypeRequirements.t * TypeConstraints.t)
+type cctxOut = (livTyp * livTyp TypR.t * TypC.t)
 
 val ccTypecheck : livTerm -> cctxOut
 
 val unpackTyp : cctxOut -> livTyp
-val unpackReq : cctxOut -> TypeRequirements.t
-val unpackCst : cctxOut -> TypeConstraints.t
+val unpackReq : cctxOut -> livTyp TypR.t
+val unpackCst : cctxOut -> TypC.t
 
-val reqMerge : TypeRequirements.t -> TypeRequirements.t 
-               -> (TypeRequirements.t * TypeConstraints.t)
+val reqMerge : livTyp TypR.t -> livTyp TypR.t 
+               -> (livTyp TypR.t * TypC.t)
