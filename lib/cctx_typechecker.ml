@@ -2,17 +2,21 @@ open Stlc
 
 let _OP_ARG_ERR = Errors.Type_error ("Failed to match argument of operator with expected type.")
 let _NONSENS_ERR = Errors.Type_error ("I am unsure how you managed to get here.") 
-
-module StringSet = Set.Make (String)
+let _MERGE_EMPTY_VALUES = Errors.Type_error ("Found two distinct type bindings in the type requirements that have no types associated with them. Something must have gone terribly wrong.")
+let _UNIFICATION_ERROR_INF_LOOP = Errors.Type_error ("Stumbled into infinite loop of type variables during unification.")
+let _UNIFICATION_ERROR_BASE_ARROW = Errors.Type_error ("Found a unification of a base type with an arrow type. Non-functional applications perhaps?")
+let _UNIFICATION_ERROR_OTHER = Errors.Type_error ("Discovered an edge-case constraint unification type error.")
 
 type cctxOut = (livTyp * livTyp TypR.t * TypC.t)
     
-let queryBind binder reqSet = TypR.find binder reqSet
+let queryBind (binder : TypR.key) (reqSet : _ TypR.t) = 
+  TypR.find binder reqSet
 (* # is a selection of one key from the map.
    < is a piping from binder to map, datawise. *)
 let ( #< ) reqSet binder = queryBind binder reqSet
 
-let removeBind binder reqSet = TypR.remove binder reqSet
+let removeBind (binder : TypR.key) (reqSet : _ TypR.t) = 
+  TypR.remove binder reqSet
 (* / is a removal of one key from the map.
    < is a piping from binder to map, datawise. *)
 let ( /< ) reqSet binder = removeBind binder reqSet
@@ -29,19 +33,21 @@ let ( &* ) (b, t) = TypR.singleton b t
    New element:                  * *)
 let ( %* ) t = TypC.singleton t
     
-(* Unnecessary at the moment *)
+(* Unnecessary at the moment, keeping for linguistic consistency. *)
 (* let ( &. ) = TypR.empty *)
 
+(* Set of equality constranints: %
+   Empty set:                    * *)
 let ( %. ) = TypC.empty
-    
-let unpackTyp triple = match triple with (typ, _, _) -> typ
 
-let unpackReq triple = match triple with (_, req, _) -> req
-
-let unpackCst triple = match triple with (_, _, cst) -> cst
+(* Just some unpack functions for cctxOut tuples. Really just a fancy 
+   version of fst, snd, trd. *)
+let unpackTyp ((search, _, _) : cctxOut) = search
+let unpackReq ((_, req, _) : cctxOut) = req
+let unpackCst ((_, _, cst) : cctxOut) = cst
 
 (* Requirement merge creates pair of requirements and constraints. *)
-let reqMerge req1 req2 =
+let reqMerge (req1 : 'a TypR.t) (req2 : 'a TypR.t) : 'a TypR.t * TypC.t =
   (* Feels very hacky... *)
   let malformedMerge = TypR.bindings (TypR.merge 
     (fun _ val1_opt val2_opt -> match val1_opt, val2_opt with
@@ -49,7 +55,7 @@ let reqMerge req1 req2 =
                                     Some (typ1, (%*) (typ1, typ2)) 
                                 | (Some typ1, None) -> Some (typ1, (%.))
                                 | (None, Some typ2) -> Some (typ2, (%.))
-                                | _ -> raise _NONSENS_ERR)
+                                | _ -> raise _MERGE_EMPTY_VALUES)
                                      req1 req2) in
   let fixedUpMerge = TypR.of_list (List.map (fun (key, (reqs, _)) -> 
                                                  (key, reqs)) 
@@ -59,7 +65,9 @@ let reqMerge req1 req2 =
                          TypC.empty malformedMerge in
   (fixedUpMerge, extraConstraints)
 
-let reqMerge3 req1 req2 req3 =
+(* Feels like you could rework this into something monadic. *)
+let reqMerge3 (req1 : 'a TypR.t) (req2 : 'a TypR.t) (req3 : 'a TypR.t) 
+              : 'a TypR.t * TypC.t =
   let (req12, cst12) = reqMerge req1 req2 in
   let (req123, cst12_3) = reqMerge req12 req3 in
   let cst123 = cst12 %+ cst12_3 in
@@ -70,7 +78,10 @@ let reqMerge3 req1 req2 req3 =
 let ( &+ ) req1 req2 = 
   reqMerge req1 req2
 
-let rec ccTypecheck tm =
+(* Quite a verbosely-written co-contextual typechecker. It produces a tuple of 
+   type cctxContext which needs to have its constraints fed into a unification
+   engine for the result to make sense and the type variables to disappear. *)
+let rec ccTypecheck (tm : livTerm) =
   match tm with
   | TConstant (CInteger _) -> 
       (Integer, TypR.empty, TypC.empty)
@@ -81,11 +92,11 @@ let rec ccTypecheck tm =
     let freshBind = (&*) (var, freshTyp) in
     (freshTyp, freshBind, TypC.empty)
   | TAbstract (bind, bndTyp, tm') ->
-    let (tm'Typ, tm'Req, tm'Cst) = ccTypecheck tm' in
+    let (tm'search, tm'Req, tm'Cst) = ccTypecheck tm' in
     let bndCst = (%*) (bndTyp, tm'Req #< bind) in
     let outCst = tm'Cst %+ bndCst in
     let outReq = tm'Req /< bind in
-    (Arrow (bndTyp, tm'Typ), outReq, outCst)
+    (Arrow (bndTyp, tm'search), outReq, outCst)
   | TApplication (tm1, tm2) ->
     let (tm1Typ, tm1Req, tm1Cst) = ccTypecheck tm1 in
     let (tm2Typ, tm2Req, tm2Cst) = ccTypecheck tm2 in
@@ -112,10 +123,10 @@ let rec ccTypecheck tm =
     let inputCst = tm1Cst %+ tm2Cst %+ tm3Cst in
     let outCst = ifCst %+ inputCst %+ cst123 in
     (tm2Typ, req123, outCst)
-  | TFix (tm, typ) -> 
+  | TFix (tm, search) -> 
     let (_, tmReq, tmCst) = ccTypecheck tm in
     let freshTyp = TypeVar (TyVar.fresh ()) in
-    let newCst = (%*) (typ, Arrow (freshTyp, freshTyp)) in
+    let newCst = (%*) (search, Arrow (freshTyp, freshTyp)) in
     let outCst = newCst %+ tmCst in
     (freshTyp, tmReq, outCst)
   | TBinOp (op, tm1, tm2) -> 
@@ -141,3 +152,54 @@ let rec ccTypecheck tm =
       let outCst = tm12Cst %+ eqCst in
       (Boolean, tm12Req, outCst)
     )
+
+(* Don't think I want to do Map.S with t = livTyp because left-to-right
+   ordering appears to be important in the definition of the algorithm. As a
+   result, each substitution from one type to another should be its own pair.
+   If a map were to be used, the order of the keys would precede the order of
+   the values, whereas the intention is to have each pair ordered separately. 
+   By the way the type means substituting from the left projection of the pair
+   to the right projection of the pair. *)
+type livSubst = (livTyp * livTyp) list
+
+(* True if typ occurs in checkSubject as the codomain of a function type. *)
+let rec occursCheck (typ : livTyp) (checkSubject : livTyp) : bool = 
+  match checkSubject with
+  | Arrow (_, sbj2) -> 
+           if sbj2 = typ then true
+           else occursCheck typ sbj2
+  | sbj -> typ = sbj
+
+let substPair (search : livTyp) (subst : livTyp) (t1, t2) : TypC.elt = 
+  let outT1 = if search = t1 then subst else t1 in
+  let outT2 = if search = t2 then subst else t2 in
+  (outT1, outT2)
+
+let substApplyList (searchTerm, subsTerm : TypC.elt) (pairs : livSubst) =
+  List.map (fun t -> substPair searchTerm subsTerm t) pairs
+
+let rec unify_rec (pairList : TypC.elt list) : livSubst =
+  match pairList with
+  | (Boolean, Boolean) :: rest | (Integer, Integer) :: rest -> unify_rec rest
+  | (TypeVar v, typ) :: rest | (typ, TypeVar v) :: rest ->
+    let substitution = (TypeVar v, typ) in
+    let substituted = substApplyList substitution rest in
+    (match typ with 
+    Arrow _ -> 
+      if occursCheck (TypeVar v) typ then raise _UNIFICATION_ERROR_INF_LOOP 
+      else (TypeVar v, typ) :: unify_rec substituted 
+    | _ -> (TypeVar v, typ) :: unify_rec substituted)
+  | (Arrow (t1, t2), Arrow (l1, l2)) :: rest ->
+    unify_rec ((t1, l1) :: (t2, l2) :: rest) (* Parallelisable with a merge. *)
+  | (Arrow _, Integer) :: _ | (Integer, Arrow _) :: _ | (Arrow _, Boolean) :: _
+  | (Boolean, Arrow _) :: _ -> raise _UNIFICATION_ERROR_BASE_ARROW
+  | _ -> raise _UNIFICATION_ERROR_OTHER
+
+(* Robinson's unification algorithm, it provides a unifying substitution. *)
+let unify (pairs : TypC.t) : livSubst =
+  let pairsList = TypC.elements pairs in
+  unify_rec pairsList
+
+let checkUnify (tm : livTerm) : cctxOut * livSubst =
+  let (_, _, cst) as out = ccTypecheck tm in  
+  (out, unify cst)
