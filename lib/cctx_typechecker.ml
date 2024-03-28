@@ -5,6 +5,7 @@ let _NONSENS_ERR = Errors.Type_error ("I am unsure how you managed to get here."
 let _MERGE_EMPTY_VALUES = Errors.Type_error ("Found two distinct type bindings in the type requirements that have no types associated with them. Something must have gone terribly wrong.")
 let _UNIFICATION_ERROR_INF_LOOP = Errors.Type_error ("Stumbled into infinite loop of type variables during unification.")
 let _UNIFICATION_ERROR_BASE_ARROW = Errors.Type_error ("Found a unification of a base type with an arrow type. Non-functional applications perhaps?")
+let _UNIFICATION_ERROR_INCOMPAT_BASE = Errors.Type_error ("Found a unification that attempts to unify disjoint types of a sum.")
 let _UNIFICATION_ERROR_OTHER = Errors.Type_error ("Discovered an edge-case constraint unification type error.")
 
 type cctxOut = (livTyp * livTyp TypR.t * TypC.t)
@@ -193,7 +194,9 @@ let rec unify_rec (pairList : TypC.elt list) : livSubst =
     unify_rec ((t1, l1) :: (t2, l2) :: rest) (* Parallelisable with a merge. *)
   | (Arrow _, Integer) :: _ | (Integer, Arrow _) :: _ | (Arrow _, Boolean) :: _
   | (Boolean, Arrow _) :: _ -> raise _UNIFICATION_ERROR_BASE_ARROW
-  | _ -> raise _UNIFICATION_ERROR_OTHER
+  | (Boolean, Integer) :: _ | (Integer, Boolean) :: _ ->
+    raise _UNIFICATION_ERROR_INCOMPAT_BASE
+  | [] -> []
 
 (* Robinson's unification algorithm, it provides a unifying substitution. *)
 let unify (pairs : TypC.t) : livSubst =
