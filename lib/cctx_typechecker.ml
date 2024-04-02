@@ -162,7 +162,8 @@ let rec ccTypecheck (tm : livTerm) =
    If a map were to be used, the order of the keys would precede the order of
    the values, whereas the intention is to have each pair ordered separately. 
    By the way the type means substituting from the left projection of the pair
-   to the right projection of the pair. *)
+   to the right projection of the pair. Any ideas for making it a more in-
+   trinsically understandable type or module? *)
 type livSubst = (livTyp * livTyp) list
 
 (* True if typ occurs in checkSubject as the codomain of a function type. *)
