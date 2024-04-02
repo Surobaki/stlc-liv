@@ -191,8 +191,7 @@ let substAppPairList (searchTerm, subsTerm : TypC.elt) (pairs : livSubst)
   List.map (fun t -> substPair searchTerm subsTerm t) pairs
 
 let substAppList (subs : livSubst) (typ : livTyp) : livTyp =
-  List.fold_left (fun typAcc sub -> if (fst sub) = typAcc then (snd sub)
-                                    else typAcc)
+  List.fold_left (fun acc x -> substTyp (fst x) (snd x) acc)
                  typ subs
 
 let rec unify_rec (pairList : TypC.elt list) : livSubst =

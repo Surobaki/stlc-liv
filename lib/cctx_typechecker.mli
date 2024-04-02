@@ -14,6 +14,6 @@ val reqMerge : livTyp TypR.t -> livTyp TypR.t
 
 val unify : TypC.t -> livSubst
 
-val bobTypecheck : (cctxOut * livSubst) -> (livTyp * TypC.t)
+val bobTypecheck : livTerm -> (livTyp * TypC.t)
 val bobTypecheckSimple : livTerm -> livTyp
 
