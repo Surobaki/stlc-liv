@@ -87,3 +87,24 @@ lib/stlc_lexrules.ml
 
 # VSCode
 .vscode**
+
+# LaTeX auto-generated folders
+doc/*.aux
+doc/*.log
+doc/*.synctex.gz
+doc/*.fls
+doc/*.fdb_latexmk
+doc/*.out
+doc/*.toc
+doc/*.bbl
+doc/*.blg
+doc/*.brf
+doc/*.nlo
+doc/*.nls
+doc/*.dvi
+doc/*.pdf
+doc/*.ps
+doc/*.gz
+doc/*.dvi.gz
+doc/*.pdf.gz
+doc/*.ps.gz
