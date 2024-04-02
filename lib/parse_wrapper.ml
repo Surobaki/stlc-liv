@@ -4,6 +4,7 @@ open Stlc_lexrules
 open Lexing
 open Typechecker
 open Interpreter
+open Cctx_typechecker
 
 let print_position ppf lexbuf =
   let pos = lexbuf.lex_curr_p in
@@ -41,6 +42,14 @@ let typecheck_string env x =
   let ast = parse_string x in
   robTypecheck env ast
     
+let ccTypecheck_file filename =
+  let ast = parse_file filename in
+  bobTypecheckSimple ast
+    
+let ccTypecheck_string x =
+  let ast = parse_string x in
+  bobTypecheckSimple ast
+    
 let eval_file env filename =
   let ast = parse_file filename in
   gremEval env ast
@@ -54,11 +63,15 @@ let eval_string env x =
 let full_treatment_file ?(typEnv = []) ?(evalEnv = []) filename =
   let ast = parse_file filename in
   let resultType = typecheck_file typEnv filename in
-  print_endline (show_livTyp resultType); 
-    print_endline (show_gremVal (gremEval evalEnv ast))
+  let ccType = ccTypecheck_file filename in
+  Printf.printf "Typecheck: %s\n" (show_livTyp resultType); 
+  Printf.printf "CCTX Typecheck: %s\n" (show_livTyp ccType);
+  Printf.printf "Evaluates to: %s\n" (show_gremVal (gremEval evalEnv ast))
 
 let full_treatment_string ?(typEnv = []) ?(evalEnv = []) x =
   let ast = parse_string x in
   let resultType = typecheck_string typEnv x in
-  print_endline (show_livTyp resultType); 
-    print_endline (show_gremVal (gremEval evalEnv ast))
+  let ccType = ccTypecheck_string x in
+  Printf.printf "Typecheck: %s\n" (show_livTyp resultType);
+  Printf.printf "CCTX Typecheck: %s\n" (show_livTyp ccType);
+  Printf.printf "Evaluates to: %s\n" (show_gremVal (gremEval evalEnv ast))

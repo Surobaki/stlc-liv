@@ -84,3 +84,6 @@ flycheck_*.el
 
 # Automatically generated OCaml lexrules from ocamllex
 lib/stlc_lexrules.ml
+
+# VSCode
+.vscode**
