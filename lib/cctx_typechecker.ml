@@ -173,21 +173,34 @@ let rec occursCheck (typ : livTyp) (checkSubject : livTyp) : bool =
            if sbj2 = typ then true
            else occursCheck typ sbj2
   | sbj -> typ = sbj
+           
+let substTyp (search : livTyp) (subst : livTyp) (subj : livTyp) : livTyp =
+  if search = subj then subst else subj
 
 let substPair (search : livTyp) (subst : livTyp) (t1, t2) : TypC.elt = 
   let outT1 = if search = t1 then subst else t1 in
   let outT2 = if search = t2 then subst else t2 in
   (outT1, outT2)
 
-let substApplyList (searchTerm, subsTerm : TypC.elt) (pairs : livSubst) =
+(* Tries to substitute subsTerm for searchTerm if it finds it within the
+   list of pairs that act as substitutions for our constraint equalities. 
+   Does this once for every substitution found in the list. *)
+(* Is this correct? Think about it. *)
+let substAppPairList (searchTerm, subsTerm : TypC.elt) (pairs : livSubst)
+                     : livSubst =
   List.map (fun t -> substPair searchTerm subsTerm t) pairs
+
+let substAppList (subs : livSubst) (typ : livTyp) : livTyp =
+  List.fold_left (fun typAcc sub -> if (fst sub) = typAcc then (snd sub)
+                                    else typAcc)
+                 typ subs
 
 let rec unify_rec (pairList : TypC.elt list) : livSubst =
   match pairList with
   | (Boolean, Boolean) :: rest | (Integer, Integer) :: rest -> unify_rec rest
   | (TypeVar v, typ) :: rest | (typ, TypeVar v) :: rest ->
     let substitution = (TypeVar v, typ) in
-    let substituted = substApplyList substitution rest in
+    let substituted = substAppPairList substitution rest in
     (match typ with 
     Arrow _ -> 
       if occursCheck (TypeVar v) typ then raise _UNIFICATION_ERROR_INF_LOOP 
@@ -209,3 +222,11 @@ let unify (pairs : TypC.t) : livSubst =
 let checkUnify (tm : livTerm) : cctxOut * livSubst =
   let (_, _, cst) as out = ccTypecheck tm in  
   (out, unify cst)
+
+let bobTypecheck (tm : livTerm) : (livTyp * TypC.t) =
+  let ((typ, _, cst), subst) = checkUnify tm in
+  (substAppList subst typ, cst)
+
+let bobTypecheckSimple (tm : livTerm) : livTyp =
+  let (typ, _) = bobTypecheck tm in
+  typ
