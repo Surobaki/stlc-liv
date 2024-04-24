@@ -182,10 +182,6 @@ let substPair (search : livTyp) (subst : livTyp) (t1, t2) : TypC.elt =
   let outT2 = if search = t2 then subst else t2 in
   (outT1, outT2)
 
-(* Tries to substitute subsTerm for searchTerm if it finds it within the
-   list of pairs that act as substitutions for our constraint equalities. 
-   Does this once for every substitution found in the list. *)
-(* Is this correct? Think about it. *)
 let substAppPairList (searchTerm, subsTerm : TypC.elt) (pairs : livSubst)
                      : livSubst =
   List.map (fun t -> substPair searchTerm subsTerm t) pairs
