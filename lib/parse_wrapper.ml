@@ -44,11 +44,17 @@ let typecheck_string env x =
     
 let ccTypecheck_file filename =
   let ast = parse_file filename in
-  bobTypecheckSimple ast
+  bobTypecheckSimple Cctx_typechecker.linBrMerge
+                     Cctx_typechecker.linSeqMerge
+                     Cctx_typechecker.linCheck
+                     ast
     
 let ccTypecheck_string x =
   let ast = parse_string x in
-  bobTypecheckSimple ast
+  bobTypecheckSimple Cctx_typechecker.linBrMerge
+                     Cctx_typechecker.linSeqMerge
+                     Cctx_typechecker.linCheck
+                     ast
     
 let eval_file env filename =
   let ast = parse_file filename in
