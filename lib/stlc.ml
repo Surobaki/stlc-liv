@@ -63,10 +63,16 @@ type gremVal = VInteger of int
 (* Evaluation environment *)
 and gremEnv = (livVar * gremVal) list
               [@@deriving show]
+    
+type livConstraint = Unrestricted of livTyp | Equal of livTyp * livTyp
 
 module TypC = Set.Make (struct
-  type t = livTyp * livTyp
-  let compare e1 e2 = Stdlib.compare (fst e1) (fst e2)
+  type t = livConstraint
+  let compare e1 e2 = match e1, e2 with
+                      | Unrestricted e1, Unrestricted e2
+                      | Equal (e1, _), Unrestricted e2
+                      | Unrestricted e1, Equal (e2, _)
+                      | Equal (e1, _), Equal (e2, _) -> Stdlib.compare e1 e2
 end)
 
 module TypR = Map.Make (struct

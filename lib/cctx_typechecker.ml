@@ -100,7 +100,7 @@ let linBrMerge (req1 : typCtx)
   let malformedMerge = TypR.bindings (TypR.merge
     (fun _ val1_opt val2_opt -> match val1_opt, val2_opt with
                                 | (Some typ1, Some typ2) -> 
-                                  Some (typ1, (%*) (typ1, typ2))
+                                  Some (typ1, (%*) (Equal (typ1, typ2)))
                                 | (Some _, None) | (None, Some _) ->
                                   raise _LINMERGE_DIFFERING_BRANCH
                                 | _ -> raise _MERGE_EMPTY_VALUES)
@@ -121,7 +121,7 @@ let uncMerge (req1 : typCtx)
   let malformedMerge = TypR.bindings (TypR.merge 
     (fun _ val1_opt val2_opt -> match val1_opt, val2_opt with
                                 | (Some typ1, Some typ2) -> 
-                                    Some (typ1, (%*) (typ1, typ2)) 
+                                    Some (typ1, (%*) (Equal (typ1, typ2))) 
                                 | (Some typ1, None) -> Some (typ1, (%.))
                                 | (None, Some typ2) -> Some (typ2, (%.))
                                 | _ -> raise _MERGE_EMPTY_VALUES)
@@ -158,7 +158,7 @@ let genMerge3 (merge : typCtx -> typCtx -> typCtx * TypC.t)
    come from a second context. *)
 let linCheck (bind : livBinder) (typ : livTyp) (ctx : typCtx)
              : TypC.t =
-  if TypR.mem bind ctx then (%*) (ctx #< bind, typ) 
+  if TypR.mem bind ctx then (%*) (Equal (ctx #< bind, typ))
                        else raise _LINCHECK_VAR_NOT_FOUND
                            
 (* Unconstrained (default) check function that determines constraints much like
@@ -166,7 +166,7 @@ let linCheck (bind : livBinder) (typ : livTyp) (ctx : typCtx)
    find the binder in the domain of the context. *)
 let uncCheck (bind : livBinder) (typ : livTyp) (ctx : typCtx)
              : TypC.t =
-  if TypR.mem bind ctx then (%*) (ctx #< bind, typ) 
+  if TypR.mem bind ctx then (%*) (Equal (ctx #< bind, typ))
                        else (%.)
 
 (* *)
@@ -188,7 +188,7 @@ let rec ccTc (mergeBranch : mergeFunction) (mergeSequence : mergeFunction)
   | TAbstract (bind, bndTyp, tm') ->
     let (tm'search, tm'Req, tm'Cst) = 
       ccTc mergeBranch mergeSequence checkVariable tm' in
-    let bndCst = (%*) (bndTyp, tm'Req #< bind) in
+    let bndCst = (%*) (Equal (bndTyp, tm'Req #< bind)) in
     let outCst = tm'Cst %+ bndCst in
     let outReq = tm'Req /< bind in
     (Arrow (bndTyp, tm'search), outReq, outCst)
@@ -199,7 +199,7 @@ let rec ccTc (mergeBranch : mergeFunction) (mergeSequence : mergeFunction)
       ccTc mergeBranch mergeSequence checkVariable tm2 in
     let (req12, cst12) = mergeSequence tm1Req tm2Req in
     let freshTyp = TypeVar (TyVar.fresh ()) in
-    let appCst = (%*) (tm1Typ, Arrow (tm2Typ, freshTyp)) in
+    let appCst = (%*) (Equal (tm1Typ, Arrow (tm2Typ, freshTyp))) in
     let outCst = tm1Cst %+ tm2Cst %+ appCst %+ cst12 in
     (freshTyp, req12, outCst)
   | TLet (bnd, bndTm, coreTm) -> 
@@ -207,7 +207,7 @@ let rec ccTc (mergeBranch : mergeFunction) (mergeSequence : mergeFunction)
       ccTc mergeBranch mergeSequence checkVariable bndTm in
     let (coreTyp, coreReq, coreCst) = 
       ccTc mergeBranch mergeSequence checkVariable coreTm in
-    let extensionCst = (%*) (bndTyp, bndReq #< bnd) in
+    let extensionCst = (%*) (Equal (bndTyp, bndReq #< bnd)) in
     let outReq = coreReq /< bnd in
     let outCst = bndCst %+ coreCst %+ extensionCst in
     (coreTyp, outReq, outCst)
@@ -221,8 +221,8 @@ let rec ccTc (mergeBranch : mergeFunction) (mergeSequence : mergeFunction)
     let (branchReq, branchCst) = mergeBranch tm2Req tm3Req in
     let (seqReq, seqCst) = mergeSequence tm1Req branchReq in
     let (req123, cst123) = (seqReq, branchCst %+ seqCst) in
-    let predicateCst = (%*) (tm1Typ, Boolean) in
-    let homoResultCst = (%*) (tm2Typ, tm3Typ) in
+    let predicateCst = (%*) (Equal (tm1Typ, Boolean)) in
+    let homoResultCst = (%*) (Equal (tm2Typ, tm3Typ)) in
     let ifCst = predicateCst %+ homoResultCst in
     let inputCst = tm1Cst %+ tm2Cst %+ tm3Cst in
     let outCst = ifCst %+ inputCst %+ cst123 in
@@ -231,7 +231,7 @@ let rec ccTc (mergeBranch : mergeFunction) (mergeSequence : mergeFunction)
     let (_, tmReq, tmCst) = 
       ccTc mergeBranch mergeSequence checkVariable tm in
     let freshTyp = TypeVar (TyVar.fresh ()) in
-    let newCst = (%*) (search, Arrow (freshTyp, freshTyp)) in
+    let newCst = (%*) (Equal (search, Arrow (freshTyp, freshTyp))) in
     let outCst = newCst %+ tmCst in
     (freshTyp, tmReq, outCst)
   | TBinOp (op, tm1, tm2) -> 
@@ -243,19 +243,19 @@ let rec ccTc (mergeBranch : mergeFunction) (mergeSequence : mergeFunction)
     let tm12Cst = tm1Cst %+ tm2Cst %+ mergeCst in
     (match op with
     | Plus | Minus | Mult | Div ->
-      let arithCst1 = (%*) (tm1Typ, Integer) in
-      let arithCst2 = (%*) (tm2Typ, Integer) in
+      let arithCst1 = (%*) (Equal (tm1Typ, Integer)) in
+      let arithCst2 = (%*) (Equal (tm2Typ, Integer)) in
       let arithCst12 = arithCst1 %+ arithCst2 in
       let outCst = tm12Cst %+ arithCst12 in
       (Integer, tm12Req, outCst)
     | Lt | Le | Gt | Ge ->
-      let relCst1 = (%*) (tm1Typ, Integer) in
-      let relCst2 = (%*) (tm2Typ, Integer) in
+      let relCst1 = (%*) (Equal (tm1Typ, Integer)) in
+      let relCst2 = (%*) (Equal (tm2Typ, Integer)) in
       let relCst12 = relCst1 %+ relCst2 in
       let outCst = tm12Cst %+ relCst12 in
       (Boolean, tm12Req, outCst)
     | Eq | Neq ->
-      let eqCst = (%*) (tm1Typ, tm2Typ) in
+      let eqCst = (%*) (Equal (tm1Typ, tm2Typ)) in
       let outCst = tm12Cst %+ eqCst in
       (Boolean, tm12Req, outCst)
     )
@@ -286,7 +286,7 @@ let substTyp (search : livTyp) (subst : livTyp) (subj : livTyp) : livTyp =
 let substPair (search : livTyp) (subst : livTyp) (t1, t2) : TypC.elt = 
   let outT1 = if search = t1 then subst else t1 in
   let outT2 = if search = t2 then subst else t2 in
-  (outT1, outT2)
+  Equal (outT1, outT2)
 
 let substAppPairList (searchTerm, subsTerm : TypC.elt) (pairs : livSubst)
                      : livSubst =
