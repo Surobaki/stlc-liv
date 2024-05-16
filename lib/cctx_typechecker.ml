@@ -1,7 +1,7 @@
 open Stlc
 
 (* *)
-(* Errors relevant to type checking. *)
+(* Define errors relevant to type checking. *)
 let _OP_ARG_ERR = Errors.Type_error 
   ("Failed to match argument of operator with expected type.")
 let _NONSENS_ERR = Errors.Type_error 
@@ -215,7 +215,7 @@ let rec ccTc (mergeBranch : mergeFunction) (mergeSequence : mergeFunction)
 
 (* *)
 (* Unification section *)
-type livSubst = (livTyp * livTyp) list
+type livSubst = livTyp * livTyp
 
 let rec occursCheck (typ : livTyp) (checkSubject : livTyp) : bool = 
   match checkSubject with
@@ -224,63 +224,68 @@ let rec occursCheck (typ : livTyp) (checkSubject : livTyp) : bool =
            else occursCheck typ sbj2
   | sbj -> typ = sbj
            
-let substTyp (search : livTyp) (subst : livTyp) (subj : livTyp) : livTyp =
-  if search = subj then subst else subj
+let applySubst (substitution : livSubst) (examined : livTyp) : livTyp =
+  let (search, subst) = substitution in
+  if search = examined then subst else examined
 
-let substPair (search : livTyp) (subst : livTyp) (t1, t2) : TypC.elt = 
-  let outT1 = if search = t1 then subst else t1 in
-  let outT2 = if search = t2 then subst else t2 in
-  Equal (outT1, outT2)
+let substConstraint (substitution : livSubst) (c : TypC.elt) : TypC.elt = 
+  let (search, subst) = substitution in
+  match c with
+  | Unrestricted t -> Unrestricted (applySubst (search, subst) t)
+  | Equal (t1, t2) -> Equal (applySubst (search, subst) t1,
+                             applySubst (search, subst) t2)
 
-let substAppPairList (searchTerm, subsTerm : TypC.elt) (pairs : livSubst)
-                     : livSubst =
-  List.map (fun t -> substPair searchTerm subsTerm t) pairs
-
-let substAppList (subs : livSubst) (typ : livTyp) : livTyp =
-  List.fold_left (fun acc x -> substTyp (fst x) (snd x) acc)
-                 typ subs
-
-let rec unifyRec (pairList : TypC.elt list) : livSubst =
+let substConstraints (substitution : livSubst) 
+                     (cs : TypC.elt list) : TypC.elt list =
+  List.map (fun constr -> substConstraint substitution constr) cs
+                 
+let rec checkUnrestr (constrTyp : livTyp) : bool =
+  match constrTyp with
+  | Integer | Boolean -> true
+  | Arrow (t1, t2) -> checkUnrestr t1 && checkUnrestr t2
+  | TypeVar _ -> raise _UNIFICATION_ERROR_OTHER (* TODO: Specialise error *)
+                 
+let rec unifyRec (pairList : TypC.elt list) : livSubst list =
   match pairList with
-  | (Boolean, Boolean) :: rest | (Integer, Integer) :: rest -> unifyRec rest
-  | (TypeVar v, typ) :: rest | (typ, TypeVar v) :: rest ->
-    let substitution = (TypeVar v, typ) in
-    let substituted = substAppPairList substitution rest in
-    (match typ with 
-    Arrow _ -> 
-      if occursCheck (TypeVar v) typ then raise _UNIFICATION_ERROR_INF_LOOP 
-      else (TypeVar v, typ) :: unifyRec substituted 
-    | _ -> (TypeVar v, typ) :: unifyRec substituted)
-  | (Arrow (t1, t2), Arrow (l1, l2)) :: rest ->
-    unifyRec ((t1, l1) :: (t2, l2) :: rest) (* Parallelisable with a merge. *)
-  | (Arrow _, Integer) :: _ | (Integer, Arrow _) :: _ | (Arrow _, Boolean) :: _
-  | (Boolean, Arrow _) :: _ -> raise _UNIFICATION_ERROR_BASE_ARROW
-  | (Boolean, Integer) :: _ | (Integer, Boolean) :: _ ->
-    raise _UNIFICATION_ERROR_INCOMPAT_BASE
   | [] -> []
-
-let unify (pairs : TypC.t) : livSubst =
+  | (Unrestricted t) :: rest -> 
+    if (checkUnrestr t) then unifyRec rest 
+    else raise _UNIFICATION_ERROR_OTHER  (* TODO: Specialise error *)
+  | (Equal (t1, t2)) :: rest ->
+    (match t1, t2 with
+    | (TypeVar v, typ) | (typ, TypeVar v) ->
+      let substituted = substConstraints (TypeVar v, typ) rest in
+      (match typ with 
+      | Arrow _ -> 
+        if occursCheck (TypeVar v) typ then 
+          raise _UNIFICATION_ERROR_OTHER (* TODO: Specialise error *)
+        else (TypeVar v, typ) :: unifyRec substituted 
+      | _ -> (TypeVar v, typ) :: unifyRec substituted
+      )
+    | (Arrow (t1, t2), Arrow (l1, l2)) ->
+      unifyRec (Equal (t1, l1) :: Equal (t2, l2) :: rest)
+    | (t1, t2) -> if t1 = t2 then unifyRec rest
+                  else raise _UNIFICATION_ERROR_INCOMPAT_BASE
+    )
+        
+let unify (pairs : TypC.t) : livSubst list =
   let pairsList = TypC.elements pairs in
   unifyRec pairsList
 
 let checkUnify 
-  (mergeBranch : mergeFunction) 
-  (mergeSequence : mergeFunction) 
-  (checkVariable : checkFunction) 
-  (tm : livTerm) 
-  : cctxOut * livSubst =
+  (mergeBranch : mergeFunction) (mergeSequence : mergeFunction) 
+  (checkVariable : checkFunction) (tm : livTerm) 
+  : cctxOut * (livSubst list) =
   let (_, _, cst) as out = ccTc mergeBranch mergeSequence checkVariable tm in  
   (out, unify cst)
 
 let bobTypecheck 
-  (mergeBranch : mergeFunction) 
-  (mergeSequence : mergeFunction) 
-  (checkVariable : checkFunction) 
-  (tm : livTerm) 
+  (mergeBranch : mergeFunction) (mergeSequence : mergeFunction) 
+  (checkVariable : checkFunction) (tm : livTerm) 
   : (livTyp * TypC.t) =
   let ((typ, _, cst), subst) = 
     checkUnify mergeBranch mergeSequence checkVariable tm in
-  (substAppList subst typ, cst)
+  (List.fold_left (fun typAcc s -> applySubst s typAcc) typ subst, cst)
 
 let bobTypecheckSimple 
   (mergeBranch : mergeFunction) 
