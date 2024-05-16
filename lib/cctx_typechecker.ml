@@ -27,6 +27,10 @@ let _UNIFICATION_ERROR_INCOMPAT_BASE = Errors.Type_error
   ("Found a unification that attempts to unify disjoint types of a sum.")
 let _UNIFICATION_ERROR_OTHER = Errors.Type_error 
   ("Discovered an edge-case constraint unification type error.")
+let _UNIFICATION_OCCURS_CHECK_FAILURE = Errors.Type_error
+  ("The occurs check for a type variable failed.")
+let _UNIFICATION_ERROR_UNRESTR_TYPEVAR = Errors.Type_error
+  ("The unification engine found an unrestricted type variable.")
 
 (* *)
 (* Types related to type checking. *)
@@ -243,14 +247,14 @@ let rec checkUnrestr (constrTyp : livTyp) : bool =
   match constrTyp with
   | Integer | Boolean -> true
   | Arrow (t1, t2) -> checkUnrestr t1 && checkUnrestr t2
-  | TypeVar _ -> raise _UNIFICATION_ERROR_OTHER (* TODO: Specialise error *)
-                 
+  | TypeVar _ -> raise _UNIFICATION_ERROR_UNRESTR_TYPEVAR                 
+
 let rec unifyRec (pairList : TypC.elt list) : livSubst list =
   match pairList with
   | [] -> []
   | (Unrestricted t) :: rest -> 
     if (checkUnrestr t) then unifyRec rest 
-    else raise _UNIFICATION_ERROR_OTHER  (* TODO: Specialise error *)
+    else raise _UNIFICATION_ERROR_UNRESTR_TYPEVAR
   | (Equal (t1, t2)) :: rest ->
     (match t1, t2 with
     | (TypeVar v, typ) | (typ, TypeVar v) ->
@@ -258,7 +262,7 @@ let rec unifyRec (pairList : TypC.elt list) : livSubst list =
       (match typ with 
       | Arrow _ -> 
         if occursCheck (TypeVar v) typ then 
-          raise _UNIFICATION_ERROR_OTHER (* TODO: Specialise error *)
+          raise _UNIFICATION_OCCURS_CHECK_FAILURE
         else (TypeVar v, typ) :: unifyRec substituted 
       | _ -> (TypeVar v, typ) :: unifyRec substituted
       )
