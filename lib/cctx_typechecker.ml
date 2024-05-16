@@ -1,7 +1,7 @@
 open Stlc
 
 (* *)
-(* Define errors relevant to type checking. *)
+(* Errors relevant to type checking. *)
 let _OP_ARG_ERR = Errors.Type_error 
   ("Failed to match argument of operator with expected type.")
 let _NONSENS_ERR = Errors.Type_error 
@@ -29,50 +29,31 @@ let _UNIFICATION_ERROR_OTHER = Errors.Type_error
   ("Discovered an edge-case constraint unification type error.")
 
 (* *)
-(* Define types relevant to type checking. *)
+(* Types related to type checking. *)
 type cctxOut = (livTyp * livTyp TypR.t * TypC.t)
 type typCtx = livTyp TypR.t
 type mergeFunction = typCtx -> typCtx -> typCtx * TypC.t
 type checkFunction = livBinder -> livTyp -> typCtx -> TypC.t
     
 (* *)
-(* Define auxiliary functions that ease frequent operations. *)
+(* Auxiliary functions. *)
 let queryBind (binder : TypR.key) (reqSet : typCtx) = 
   TypR.find binder reqSet
-(* The #< operator represents selecting (imagine # as a 'narrowing' operator) 
-   a binder from a type context. The < represents the direction that the 
-   selection operator # takes, so REQS #< BIND represents BIND getting 
-   selected and piped into REQS.*)
 let ( #< ) reqSet binder = queryBind binder reqSet
 
 let removeBind (binder : TypR.key) (reqSet : typCtx) = 
   TypR.remove binder reqSet
-(* Similarly to queryBind #<, the forward slash / symbol represents the removal
-   of a certain binder from a set of requirements. *)
 let ( /< ) reqSet binder = removeBind binder reqSet
 
-(* The % represents a function working over TypC, the + represents the joining
-   of two elements. That is SET1 %+ SET2 unions them. *)
 let ( %+ ) cst1 cst2 = TypC.union cst1 cst2
-
-(* The & represents a function working over TypR, the * represents the creation
-   of a singleton element. *)
 let ( &* ) (b, t) = TypR.singleton b t
-
-(* See %+ and &* for an intuitive understanding of this operator. *)
 let ( %* ) t = TypC.singleton t
-
-(* The % represents a function working over TypC, the . represents the creation
-   of an empty TypC. *)
 let ( %. ) = TypC.empty
 
-(* Just some unpack functions for cctxOut tuples. Really just a fancy 
-   version of fst, snd, trd. *)
 let unpackTyp ((search, _, _) : cctxOut) = search
 let unpackReq ((_, req, _) : cctxOut) = req
 let unpackCst ((_, _, cst) : cctxOut) = cst
   
-(* Linear sequential merge *)
 let linSeqMerge (req1 : typCtx) 
                 (req2 : typCtx) : typCtx * TypC.t =
   let malformedMerge = TypR.bindings (TypR.merge
@@ -93,8 +74,6 @@ let linSeqMerge (req1 : typCtx)
                          TypC.empty malformedMerge in
   (fixedUpMerge, extraConstraints)
 
-(* Linear branching control flow merge *)
-(* According to Simon we don't actually need the dom(R1) = dom (R2) check? *)
 let linBrMerge (req1 : typCtx) 
                (req2 : typCtx) : typCtx * TypC.t =
   let malformedMerge = TypR.bindings (TypR.merge
@@ -115,7 +94,6 @@ let linBrMerge (req1 : typCtx)
                          TypC.empty malformedMerge in
   (fixedUpMerge, extraConstraints)
 
-(* Unconstrained (non-linear) merge *)
 let uncMerge (req1 : typCtx) 
              (req2 : typCtx) : typCtx * TypC.t =
   let malformedMerge = TypR.bindings (TypR.merge 
@@ -136,43 +114,18 @@ let uncMerge (req1 : typCtx)
                          TypC.empty malformedMerge in
   (fixedUpMerge, extraConstraints)
 
-(* My category theoretical spidey-sense is going off, I feel like the merges
-   could be nicely generalised with monads and/or other type theoretical
-   constructs. *)
-(* Three argument version of a generalised merge. Nothing fancy, just
-   adds results together. *)
-(* Temporarily disabled, might get some use later so keep it. *)
-(*
-let genMerge3 (merge : typCtx -> typCtx -> typCtx * TypC.t)
-              (req1 : typCtx) 
-              (req2 : typCtx) 
-              (req3 : typCtx) : typCtx * TypC.t =
-  (let (req12, cst12) = merge req1 req2 in
-   let (req123, cst12_3) = merge req12 req3 in
-   let cst123 = cst12 %+ cst12_3 in
-   (req123, cst123))
-*)
-
-(* Linear check function that determines a constraint based on a variable
-   binder (with an associated context) and a type, which in usage would usually
-   come from a second context. *)
 let linCheck (bind : livBinder) (typ : livTyp) (ctx : typCtx)
              : TypC.t =
   if TypR.mem bind ctx then (%*) (Equal (ctx #< bind, typ))
                        else raise _LINCHECK_VAR_NOT_FOUND
                            
-(* Unconstrained (default) check function that determines constraints much like
-   its linear counterpart, but in this case it does not err when it can't
-   find the binder in the domain of the context. *)
 let uncCheck (bind : livBinder) (typ : livTyp) (ctx : typCtx)
              : TypC.t =
   if TypR.mem bind ctx then (%*) (Equal (ctx #< bind, typ))
                        else (%.)
 
 (* *)
-(* Quite a verbosely-written co-contextual typechecker. It produces a tuple of 
-   type cctxContext which needs to have its constraints fed into a unification
-   engine for the result to make sense and the type variables to disappear. *)
+(* Typechecking section *)
 let rec ccTc (mergeBranch : mergeFunction) (mergeSequence : mergeFunction) 
              (checkVariable : checkFunction) (tm : livTerm) 
              : cctxOut =
@@ -262,17 +215,8 @@ let rec ccTc (mergeBranch : mergeFunction) (mergeSequence : mergeFunction)
 
 (* *)
 (* Unification section *)
-(* Don't think I want to do Map.S with t = livTyp because left-to-right
-   ordering appears to be important in the definition of the algorithm. As a
-   result, each substitution from one type to another should be its own pair.
-   If a map were to be used, the order of the keys would precede the order of
-   the values, whereas the intention is to have each pair ordered separately. 
-   By the way the type means substituting from the left projection of the pair
-   to the right projection of the pair. Any ideas for making it a more in-
-   trinsically understandable type or module? *)
 type livSubst = (livTyp * livTyp) list
 
-(* True if typ occurs in checkSubject as the codomain of a function type. *)
 let rec occursCheck (typ : livTyp) (checkSubject : livTyp) : bool = 
   match checkSubject with
   | Arrow (_, sbj2) -> 
@@ -315,13 +259,10 @@ let rec unifyRec (pairList : TypC.elt list) : livSubst =
     raise _UNIFICATION_ERROR_INCOMPAT_BASE
   | [] -> []
 
-(* Robinson's unification algorithm, it provides a unifying substitution. *)
 let unify (pairs : TypC.t) : livSubst =
   let pairsList = TypC.elements pairs in
   unifyRec pairsList
 
-(* Retrieves a most general substitution for the co-contextual result
-   of checking tm. *)
 let checkUnify 
   (mergeBranch : mergeFunction) 
   (mergeSequence : mergeFunction) 
@@ -331,10 +272,6 @@ let checkUnify
   let (_, _, cst) as out = ccTc mergeBranch mergeSequence checkVariable tm in  
   (out, unify cst)
 
-(* This calls on the cocontextual typechecker ccTc, then figures out the 
-   most general substitution for the resulting constraints, then
-   applies the substitution to the types given by ccTc. It produces
-   a pair of type and constraints. *)
 let bobTypecheck 
   (mergeBranch : mergeFunction) 
   (mergeSequence : mergeFunction) 
@@ -345,7 +282,6 @@ let bobTypecheck
     checkUnify mergeBranch mergeSequence checkVariable tm in
   (substAppList subst typ, cst)
 
-(* This discards the second projection of the output of bobTypecheck. *)
 let bobTypecheckSimple 
   (mergeBranch : mergeFunction) 
   (mergeSequence : mergeFunction) 
