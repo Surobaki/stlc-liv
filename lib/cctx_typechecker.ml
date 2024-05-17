@@ -135,9 +135,9 @@ let rec ccTc (mergeBranch : mergeFunction) (mergeSequence : mergeFunction)
              : cctxOut =
   match tm with
   | TConstant (CInteger _) -> 
-      (Integer, TypR.empty, TypC.empty)
+      (Base Integer, TypR.empty, TypC.empty)
   | TConstant (CBoolean _) -> 
-      (Boolean, TypR.empty, TypC.empty)
+      (Base Boolean, TypR.empty, TypC.empty)
   | TVariable var -> 
     let freshTyp = TypeVar (TyVar.fresh ()) in
     let freshBind = (&*) (var, freshTyp) in
@@ -178,7 +178,7 @@ let rec ccTc (mergeBranch : mergeFunction) (mergeSequence : mergeFunction)
     let (branchReq, branchCst) = mergeBranch tm2Req tm3Req in
     let (seqReq, seqCst) = mergeSequence tm1Req branchReq in
     let (req123, cst123) = (seqReq, branchCst %+ seqCst) in
-    let predicateCst = (%*) (Equal (tm1Typ, Boolean)) in
+    let predicateCst = (%*) (Equal (tm1Typ, Base Boolean)) in
     let homoResultCst = (%*) (Equal (tm2Typ, tm3Typ)) in
     let ifCst = predicateCst %+ homoResultCst in
     let inputCst = tm1Cst %+ tm2Cst %+ tm3Cst in
@@ -200,21 +200,21 @@ let rec ccTc (mergeBranch : mergeFunction) (mergeSequence : mergeFunction)
     let tm12Cst = tm1Cst %+ tm2Cst %+ mergeCst in
     (match op with
     | Plus | Minus | Mult | Div ->
-      let arithCst1 = (%*) (Equal (tm1Typ, Integer)) in
-      let arithCst2 = (%*) (Equal (tm2Typ, Integer)) in
+      let arithCst1 = (%*) (Equal (tm1Typ, Base Integer)) in
+      let arithCst2 = (%*) (Equal (tm2Typ, Base Integer)) in
       let arithCst12 = arithCst1 %+ arithCst2 in
       let outCst = tm12Cst %+ arithCst12 in
-      (Integer, tm12Req, outCst)
+      (Base Integer, tm12Req, outCst)
     | Lt | Le | Gt | Ge ->
-      let relCst1 = (%*) (Equal (tm1Typ, Integer)) in
-      let relCst2 = (%*) (Equal (tm2Typ, Integer)) in
+      let relCst1 = (%*) (Equal (tm1Typ, Base Integer)) in
+      let relCst2 = (%*) (Equal (tm2Typ, Base Integer)) in
       let relCst12 = relCst1 %+ relCst2 in
       let outCst = tm12Cst %+ relCst12 in
-      (Boolean, tm12Req, outCst)
+      (Base Boolean, tm12Req, outCst)
     | Eq | Neq ->
       let eqCst = (%*) (Equal (tm1Typ, tm2Typ)) in
       let outCst = tm12Cst %+ eqCst in
-      (Boolean, tm12Req, outCst)
+      (Base Boolean, tm12Req, outCst)
     )
 
 (* *)
@@ -245,7 +245,7 @@ let substConstraints (substitution : livSubst)
                  
 let rec checkUnrestr (constrTyp : livTyp) : bool =
   match constrTyp with
-  | Integer | Boolean -> true
+  | Base _ -> true
   | Arrow (t1, t2) -> checkUnrestr t1 && checkUnrestr t2
   | TypeVar _ -> raise _UNIFICATION_ERROR_UNRESTR_TYPEVAR                 
 

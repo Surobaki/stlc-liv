@@ -14,10 +14,14 @@ module TyVar = struct
 end
 [@@deriving show]
 
+(* STLC base types *)
+type livBase = Integer 
+             | Boolean
+             [@@deriving show]
+
 (* STLC type universe *)
 type livTyp = TypeVar of TyVar.t
-            | Integer
-            | Boolean
+            | Base of livBase
             | Arrow of livTyp * livTyp 
             [@@deriving show]
 
@@ -64,7 +68,8 @@ type gremVal = VInteger of int
 and gremEnv = (livVar * gremVal) list
               [@@deriving show]
     
-type livConstraint = Unrestricted of livTyp | Equal of livTyp * livTyp
+type livConstraint = Unrestricted of livTyp 
+                   | Equal of livTyp * livTyp
 
 module TypC = Set.Make (struct
   type t = livConstraint

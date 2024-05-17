@@ -79,8 +79,8 @@ ty:
   | t = base_ty { t }
 
 base_ty:
-  | TYINT  { Integer }
-  | TYBOOL { Boolean }
+  | TYINT  { Base Integer }
+  | TYBOOL { Base Boolean }
 
 expr_main:
   | e = expr EOF { e }
