@@ -117,6 +117,51 @@ let uncMerge (req1 : typCtx)
                                                    else acc)
                          TypC.empty malformedMerge in
   (fixedUpMerge, extraConstraints)
+ 
+let mixSeqMerge (req1 : typCtx)
+                (req2 : typCtx) : typCtx * TypC.t =
+  let malformedMerge = TypR.bindings (TypR.merge 
+    (fun _ val1_opt val2_opt -> 
+      match val1_opt, val2_opt with
+      | (Some typ1, Some typ2) -> 
+        Some (typ1, ((%+) ((%*) (Equal (typ1, typ2))) 
+                          ((%*) (Unrestricted typ1))))
+      | (Some typ1, None) -> Some (typ1, (%.))
+      | (None, Some typ2) -> Some (typ2, (%.))
+      | _ -> raise _MERGE_EMPTY_VALUES)
+           req1 req2) in
+  let fixedUpMerge = TypR.of_list (List.map (fun (key, (reqs, _)) -> 
+                                                 (key, reqs)) 
+                                            malformedMerge) in
+  let extraConstraints = List.fold_left 
+                         (fun acc (_, (_, cst)) -> if not (cst = (%.)) 
+                                                   then TypC.union acc cst
+                                                   else acc)
+                         TypC.empty malformedMerge in
+  (fixedUpMerge, extraConstraints)
+
+let mixBrMerge (req1 : typCtx)
+               (req2 : typCtx) : typCtx * TypC.t =
+  let malformedMerge = TypR.bindings (TypR.merge
+    (fun _ val1_opt val2_opt -> 
+      match val1_opt, val2_opt with
+      | (Some typ1, Some typ2) -> 
+        Some (typ1, (%*) (Equal (typ1, typ2)))
+      | (Some typ, None) | (None, Some typ) ->
+        Some (typ, (%*) (Unrestricted typ))
+      | _ -> raise _MERGE_EMPTY_VALUES)
+    req1 req2) in
+  let fixedUpMerge = TypR.of_list 
+                     (List.map (fun (key, (reqs, _)) ->
+                       (key, reqs))
+                     malformedMerge) in
+  let extraConstraints = 
+    List.fold_left 
+    (fun acc (_, (_, cst)) -> if not (cst = (%.)) 
+      then TypC.union acc cst
+      else acc)
+    TypC.empty malformedMerge in
+    (fixedUpMerge, extraConstraints)
 
 let linCheck (bind : livBinder) (typ : livTyp) (ctx : typCtx)
              : TypC.t =
@@ -219,7 +264,7 @@ let rec ccTc (mergeBranch : mergeFunction) (mergeSequence : mergeFunction)
 
 (* *)
 (* Unification section *)
-type livSubst = livTyp * livTyp
+type livSubst = TyVar.t * livTyp
 
 let rec occursCheck (typ : livTyp) (checkSubject : livTyp) : bool = 
   match checkSubject with
@@ -230,7 +275,7 @@ let rec occursCheck (typ : livTyp) (checkSubject : livTyp) : bool =
            
 let applySubst (substitution : livSubst) (examined : livTyp) : livTyp =
   let (search, subst) = substitution in
-  if search = examined then subst else examined
+  if (TypeVar search) = examined then subst else examined
 
 let substConstraint (substitution : livSubst) (c : TypC.elt) : TypC.elt = 
   let (search, subst) = substitution in
@@ -258,13 +303,13 @@ let rec unifyRec (pairList : TypC.elt list) : livSubst list =
   | (Equal (t1, t2)) :: rest ->
     (match t1, t2 with
     | (TypeVar v, typ) | (typ, TypeVar v) ->
-      let substituted = substConstraints (TypeVar v, typ) rest in
+      let substituted = substConstraints (v, typ) rest in
       (match typ with 
       | Arrow _ -> 
         if occursCheck (TypeVar v) typ then 
           raise _UNIFICATION_OCCURS_CHECK_FAILURE
-        else (TypeVar v, typ) :: unifyRec substituted 
-      | _ -> (TypeVar v, typ) :: unifyRec substituted
+        else (v, typ) :: unifyRec substituted 
+      | _ -> (v, typ) :: unifyRec substituted
       )
     | (Arrow (t1, t2), Arrow (l1, l2)) ->
       unifyRec (Equal (t1, l1) :: Equal (t2, l2) :: rest)

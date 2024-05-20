@@ -2,7 +2,7 @@ open Stlc
 
 type cctxOut = (livTyp * livTyp TypR.t * TypC.t)
 type typCtx = livTyp TypR.t
-type livSubst = livTyp * livTyp
+type livSubst = TyVar.t * livTyp
 type mergeFunction = typCtx -> typCtx -> typCtx * TypC.t
 type checkFunction = livBinder -> livTyp -> typCtx -> TypC.t
 
@@ -16,6 +16,8 @@ val unpackCst : cctxOut -> TypC.t
 val linSeqMerge : mergeFunction
 val linBrMerge  : mergeFunction
 val uncMerge    : mergeFunction
+val mixSeqMerge : mergeFunction
+val mixBrMerge  : mergeFunction
 val linCheck    : checkFunction
 val uncCheck    : checkFunction
 
