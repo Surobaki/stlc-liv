@@ -163,6 +163,14 @@ let mixBrMerge (req1 : typCtx)
     TypC.empty malformedMerge in
     (fixedUpMerge, extraConstraints)
 
+let rec genUnrestrictedRec (l : (livBinder * livTyp) list) : TypC.elt list =
+  match l with
+  | (_, typ) :: rest -> (Unrestricted typ) :: genUnrestrictedRec rest
+  | [] -> []
+
+let genUnrestricted (ctx : typCtx) : TypC.t =
+  TypC.of_list (genUnrestrictedRec (TypR.to_list ctx))
+
 let linCheck (bind : livBinder) (typ : livTyp) (ctx : typCtx)
              : TypC.t =
   if TypR.mem bind ctx then (%*) (Equal (ctx #< bind, typ))
