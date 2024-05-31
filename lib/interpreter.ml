@@ -27,6 +27,8 @@ let rec gremEval env tm =
     | None -> raise _ENV_VAR_NOT_FOUND_ERR)
   | TAbstract (bind, _, tm') ->
     VClosure (bind, tm', env)
+  | TLinAbstract (bind, _, tm') ->
+    VClosure (bind, tm', env)
   | TApplication (tm1, tm2) ->
     let tm1' = gremEval env tm1 in
     let tm2' = gremEval env tm2 in

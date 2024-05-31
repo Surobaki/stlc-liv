@@ -52,6 +52,9 @@ type livTerm = TConstant of livConst
              | TLet of livBinder * livTerm * livTerm
              | TFix of livTerm * livTyp
              | TIf of livTerm * livTerm * livTerm
+             (* PCF Extensions *)
+             | TLinAbstract of livBinder * livTyp * livTerm
+             (* Linear abstraction *)
              | TBinOp of livBinOp * livTerm * livTerm
              (* Technically binary operators are constants in the language *)
              [@@deriving show]

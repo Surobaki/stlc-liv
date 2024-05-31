@@ -28,6 +28,11 @@ let rec robTypecheck (env : robEnv) (tm : livTerm) : livTyp =
     let enrichedEnv = ((bind, typ) :: env) in 
     let tm'Typ = robTypecheck enrichedEnv tm' in
       Arrow (typ, tm'Typ)
+  (* TODO: Implement linearity *)
+  | TLinAbstract (bind, typ, tm') ->
+    let enrichedEnv = ((bind, typ) :: env) in 
+    let tm'Typ = robTypecheck enrichedEnv tm' in
+      Arrow (typ, tm'Typ)
   | TApplication (tm1, tm2) -> 
     let tm1Typ = robTypecheck env tm1 in
     let tm2Typ = robTypecheck env tm2 in

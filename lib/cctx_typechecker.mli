@@ -21,9 +21,10 @@ val mixBrMerge  : mergeFunction
 val linCheck    : checkFunction
 val uncCheck    : checkFunction
 
+val closeSubsts : livSubst list -> livTyp -> livTyp
+
 val unify : TypC.t -> livSubst list
 
 val bobTypecheck : mergeFunction -> mergeFunction -> checkFunction ->
                    livTerm -> (livTyp * TypC.t)
-val bobTypecheckSimple : mergeFunction -> mergeFunction -> checkFunction ->
-                         livTerm -> livTyp
+val bobTypecheckSimple : livTerm -> livTyp
