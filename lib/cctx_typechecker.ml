@@ -165,8 +165,8 @@ let mixBrMerge (req1 : typCtx)
 
 let rec genUnrestrictedRec (l : (livBinder * livTyp) list) : TypC.elt list =
   match l with
-  | (_, typ) :: rest -> (Unrestricted typ) :: genUnrestrictedRec rest
   | [] -> []
+  | (_, typ) :: rest -> (Unrestricted typ) :: genUnrestrictedRec rest
 
 let genUnrestricted (ctx : typCtx) : TypC.t =
   TypC.of_list (genUnrestrictedRec (TypR.to_list ctx))
@@ -200,6 +200,14 @@ let rec ccTc (mergeBranch : mergeFunction) (mergeSequence : mergeFunction)
       ccTc mergeBranch mergeSequence checkVariable tm' in
     let bndCst = (%*) (Equal (bndTyp, tm'Req #< bind)) in
     let outCst = tm'Cst %+ bndCst in
+    let outReq = tm'Req /< bind in
+    (Arrow (bndTyp, tm'search), outReq, outCst)
+  | TLinAbstract (bind, bndTyp, tm') ->
+    let (tm'search, tm'Req, tm'Cst) = 
+      ccTc mergeBranch mergeSequence checkVariable tm' in
+    let bndCst = (%*) (Equal (bndTyp, tm'Req #< bind)) in
+    let ctxLinCst = genUnrestricted tm'Req in
+    let outCst = tm'Cst %+ bndCst %+ ctxLinCst in
     let outReq = tm'Req /< bind in
     (Arrow (bndTyp, tm'search), outReq, outCst)
   | TApplication (tm1, tm2) ->
@@ -280,7 +288,7 @@ let rec occursCheck (typ : livTyp) (checkSubject : livTyp) : bool =
            if sbj2 = typ then true
            else occursCheck typ sbj2
   | sbj -> typ = sbj
-           
+
 let applySubst (substitution : livSubst) (examined : livTyp) : livTyp =
   let (search, subst) = substitution in
   if (TypeVar search) = examined then subst else examined
@@ -295,19 +303,26 @@ let substConstraint (substitution : livSubst) (c : TypC.elt) : TypC.elt =
 let substConstraints (substitution : livSubst) 
                      (cs : TypC.elt list) : TypC.elt list =
   List.map (fun constr -> substConstraint substitution constr) cs
+
+let closeSubsts (substitutions : livSubst list) (examined : livTyp) : livTyp = 
+  List.fold_left 
+  (fun subject substitution -> applySubst substitution subject) 
+  examined substitutions 
                  
 let rec checkUnrestr (constrTyp : livTyp) : bool =
   match constrTyp with
   | Base _ -> true
   | Arrow (t1, t2) -> checkUnrestr t1 && checkUnrestr t2
-  | TypeVar _ -> raise _UNIFICATION_ERROR_UNRESTR_TYPEVAR                 
+  | TypeVar _ -> false
 
-let rec unifyRec (pairList : TypC.elt list) : livSubst list =
-  match pairList with
+let linearityCheck (constraintSubjects : livTyp list) : livTyp list =
+  List.filter checkUnrestr constraintSubjects
+
+let rec unifyEqualities (constraints : TypC.elt list) : livSubst list =
+  match constraints with
   | [] -> []
-  | (Unrestricted t) :: rest -> 
-    if (checkUnrestr t) then unifyRec rest 
-    else raise _UNIFICATION_ERROR_UNRESTR_TYPEVAR
+  | (Unrestricted _) :: _ -> 
+    raise _UNIFICATION_ERROR_UNRESTR_TYPEVAR
   | (Equal (t1, t2)) :: rest ->
     (match t1, t2 with
     | (TypeVar v, typ) | (typ, TypeVar v) ->
@@ -316,38 +331,54 @@ let rec unifyRec (pairList : TypC.elt list) : livSubst list =
       | Arrow _ -> 
         if occursCheck (TypeVar v) typ then 
           raise _UNIFICATION_OCCURS_CHECK_FAILURE
-        else (v, typ) :: unifyRec substituted 
-      | _ -> (v, typ) :: unifyRec substituted
+        else (v, typ) :: unifyEqualities substituted 
+      | _ -> (v, typ) :: unifyEqualities substituted
       )
     | (Arrow (t1, t2), Arrow (l1, l2)) ->
-      unifyRec (Equal (t1, l1) :: Equal (t2, l2) :: rest)
-    | (t1, t2) -> if t1 = t2 then unifyRec rest
+      unifyEqualities (Equal (t1, l1) :: Equal (t2, l2) :: rest)
+    | (t1, t2) -> if t1 = t2 then unifyEqualities rest
                   else raise _UNIFICATION_ERROR_INCOMPAT_BASE
     )
-        
-let unify (pairs : TypC.t) : livSubst list =
-  let pairsList = TypC.elements pairs in
-  unifyRec pairsList
 
-let checkUnify 
+let reverseOrderUnrestricted (substitution : livConstraint) : bool =
+  match substitution with
+  | Unrestricted _ -> false
+  | _ -> true
+
+let closeUnrestrictedSubsts (constr : livConstraint) 
+                            (substitutions : livSubst list) : livTyp =
+  match constr with 
+  | Unrestricted typVar -> closeSubsts substitutions typVar
+  | _ -> raise _UNIFICATION_ERROR_OTHER 
+
+let resolveConstraints (constraints : TypC.t) : livSubst list =
+  let constraintsList = TypC.elements constraints in
+  let (equalityList, unrestrictionList) = 
+    List.partition 
+    reverseOrderUnrestricted
+    constraintsList in
+  let unified = unifyEqualities equalityList in
+  let substituted = 
+    List.map 
+    (fun x -> closeUnrestrictedSubsts x unified)
+    unrestrictionList in
+  if (linearityCheck substituted) = substituted then unified
+  else raise _UNIFICATION_ERROR_OTHER
+
+let checkResolve 
   (mergeBranch : mergeFunction) (mergeSequence : mergeFunction) 
   (checkVariable : checkFunction) (tm : livTerm) 
   : cctxOut * (livSubst list) =
   let (_, _, cst) as out = ccTc mergeBranch mergeSequence checkVariable tm in  
-  (out, unify cst)
+  (out, resolveConstraints cst)
 
 let bobTypecheck 
   (mergeBranch : mergeFunction) (mergeSequence : mergeFunction) 
   (checkVariable : checkFunction) (tm : livTerm) 
   : (livTyp * TypC.t) =
   let ((typ, _, cst), subst) = 
-    checkUnify mergeBranch mergeSequence checkVariable tm in
-  (List.fold_left (fun typAcc s -> applySubst s typAcc) typ subst, cst)
+    checkResolve mergeBranch mergeSequence checkVariable tm in
+  (closeSubsts subst typ, cst)
 
-let bobTypecheckSimple 
-  (mergeBranch : mergeFunction) 
-  (mergeSequence : mergeFunction) 
-  (checkVariable : checkFunction) 
-  (tm : livTerm) 
-  : livTyp =
-  fst @@ bobTypecheck mergeBranch mergeSequence checkVariable tm
+let bobTypecheckSimple (tm : livTerm) : livTyp =
+  fst @@ bobTypecheck mixBrMerge mixSeqMerge linCheck tm
