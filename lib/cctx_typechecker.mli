@@ -23,7 +23,7 @@ val uncCheck    : checkFunction
 
 val closeSubsts : livSubst list -> livTyp -> livTyp
 
-val unify : TypC.t -> livSubst list
+val resolveConstraints : TypC.t -> livSubst list
 
 val bobTypecheck : mergeFunction -> mergeFunction -> checkFunction ->
                    livTerm -> (livTyp * TypC.t)
