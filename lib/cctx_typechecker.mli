@@ -15,11 +15,12 @@ val unpackCst : cctxOut -> TypC.t
 
 val linSeqMerge : mergeFunction
 val linBrMerge  : mergeFunction
-val uncMerge    : mergeFunction
+val unrMerge    : mergeFunction
 val mixSeqMerge : mergeFunction
 val mixBrMerge  : mergeFunction
 val linCheck    : checkFunction
-val uncCheck    : checkFunction
+val unrCheck    : checkFunction
+val mixCheck    : checkFunction
 
 val closeSubsts : livSubst list -> livTyp -> livTyp
 

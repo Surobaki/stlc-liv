@@ -98,7 +98,7 @@ let linBrMerge (req1 : typCtx)
                          TypC.empty malformedMerge in
   (fixedUpMerge, extraConstraints)
 
-let uncMerge (req1 : typCtx) 
+let unrMerge (req1 : typCtx) 
              (req2 : typCtx) : typCtx * TypC.t =
   let malformedMerge = TypR.bindings (TypR.merge 
     (fun _ val1_opt val2_opt -> match val1_opt, val2_opt with
@@ -176,7 +176,12 @@ let linCheck (bind : livBinder) (typ : livTyp) (ctx : typCtx)
   if TypR.mem bind ctx then (%*) (Equal (ctx #< bind, typ))
                        else raise _LINCHECK_VAR_NOT_FOUND
                            
-let uncCheck (bind : livBinder) (typ : livTyp) (ctx : typCtx)
+let mixCheck (bind : livBinder) (typ : livTyp) (ctx : typCtx)
+             : TypC.t =
+  if TypR.mem bind ctx then (%*) (Equal (ctx #< bind, typ))
+                       else (%*) (Unrestricted typ)
+                           
+let unrCheck (bind : livBinder) (typ : livTyp) (ctx : typCtx)
              : TypC.t =
   if TypR.mem bind ctx then (%*) (Equal (ctx #< bind, typ))
                        else (%.)
@@ -198,14 +203,14 @@ let rec ccTc (mergeBranch : mergeFunction) (mergeSequence : mergeFunction)
   | TAbstract (bind, bndTyp, tm') ->
     let (tm'search, tm'Req, tm'Cst) = 
       ccTc mergeBranch mergeSequence checkVariable tm' in
-    let bndCst = (%*) (Equal (bndTyp, tm'Req #< bind)) in
+    let bndCst = checkVariable bind bndTyp tm'Req in
     let outCst = tm'Cst %+ bndCst in
     let outReq = tm'Req /< bind in
     (Arrow (bndTyp, tm'search), outReq, outCst)
   | TLinAbstract (bind, bndTyp, tm') ->
     let (tm'search, tm'Req, tm'Cst) = 
       ccTc mergeBranch mergeSequence checkVariable tm' in
-    let bndCst = (%*) (Equal (bndTyp, tm'Req #< bind)) in
+    let bndCst = checkVariable bind bndTyp tm'Req in
     let ctxLinCst = genUnrestricted tm'Req in
     let outCst = tm'Cst %+ bndCst %+ ctxLinCst in
     let outReq = tm'Req /< bind in
@@ -225,9 +230,10 @@ let rec ccTc (mergeBranch : mergeFunction) (mergeSequence : mergeFunction)
       ccTc mergeBranch mergeSequence checkVariable bndTm in
     let (coreTyp, coreReq, coreCst) = 
       ccTc mergeBranch mergeSequence checkVariable coreTm in
-    let extensionCst = (%*) (Equal (bndTyp, bndReq #< bnd)) in
-    let outReq = coreReq /< bnd in
-    let outCst = bndCst %+ coreCst %+ extensionCst in
+    let extensionCst = checkVariable bnd bndTyp coreReq in
+    let merge = mergeSequence bndReq (coreReq /< bnd) in
+    let outReq = fst merge in
+    let outCst = bndCst %+ coreCst %+ extensionCst %+ (snd merge) in
     (coreTyp, outReq, outCst)
   | TIf (tm1, tm2, tm3) ->
     let (tm1Typ, tm1Req, tm1Cst) = 
@@ -289,9 +295,13 @@ let rec occursCheck (typ : livTyp) (checkSubject : livTyp) : bool =
            else occursCheck typ sbj2
   | sbj -> typ = sbj
 
-let applySubst (substitution : livSubst) (examined : livTyp) : livTyp =
+let rec applySubst (substitution : livSubst) (examined : livTyp) : livTyp =
   let (search, subst) = substitution in
-  if (TypeVar search) = examined then subst else examined
+  match examined with
+  | Base _ -> examined
+  | TypeVar _ -> if (TypeVar search) = examined then subst else examined
+  | Arrow (t1, t2) -> Arrow (applySubst substitution t1, applySubst substitution t2)
+  (*DISSECT EXAMINED INTO POINTWISE COMPONENTS*)
 
 let substConstraint (substitution : livSubst) (c : TypC.elt) : TypC.elt = 
   let (search, subst) = substitution in
