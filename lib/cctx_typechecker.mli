@@ -1,10 +1,12 @@
 open Stlc
 
-type cctxOut = (livTyp * livTyp TypR.t * TypC.t)
+type cctxOut = livTyp * livTyp TypR.t * TypC.t
 type typCtx = livTyp TypR.t
 type livSubst = TyVar.t * livTyp
 type mergeFunction = typCtx -> typCtx -> typCtx * TypC.t
 type checkFunction = livBinder -> livTyp -> typCtx -> TypC.t
+type tcOut = livTyp * TypC.t
+type linearityBase = B_Linear | B_Mixed | B_Unrestricted
 
 val ccTc : mergeFunction -> mergeFunction -> checkFunction ->
            livTerm -> cctxOut
@@ -27,5 +29,7 @@ val closeSubsts : livSubst list -> livTyp -> livTyp
 val resolveConstraints : TypC.t -> livSubst list
 
 val bobTypecheck : mergeFunction -> mergeFunction -> checkFunction ->
-                   livTerm -> (livTyp * TypC.t)
-val bobTypecheckSimple : livTerm -> livTyp
+                   livTerm -> tcOut
+val typecheck : linearityBase -> livTerm -> tcOut
+
+val pp_tcOut : ?verbose:bool -> Format.formatter -> tcOut -> unit

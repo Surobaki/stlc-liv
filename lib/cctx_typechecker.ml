@@ -7,21 +7,21 @@ let _OP_ARG_ERR = Errors.Type_error
 let _NONSENS_ERR = Errors.Type_error 
   ("I am unsure how you managed to get here.") 
 let _MERGE_EMPTY_VALUES = Errors.Type_error 
-  ("Found two distinct type bindings in the type requirements that \newline
-    have no types associated with them. Something must have \newline
+  ("Found two distinct type bindings in the type requirements that 
+    have no types associated with them. Something must have 
     gone terribly wrong.")
 let _LINMERGE_VARIABLE_REUSE = Errors.Type_error 
-  ("Found duplicate type bindings when trying to merge contexts. \newline
+  ("Found duplicate type bindings when trying to merge contexts. 
     Are you sure you're using them linearly?")
 let _LINMERGE_DIFFERING_BRANCH = Errors.Type_error
-  ("Found two branches of control flow statements that do not have \newline
+  ("Found two branches of control flow statements that do not have 
     matching variable-type assignments. Make sure both branches are linear.")
 let _LINCHECK_VAR_NOT_FOUND = Errors.Type_error
   ("Found an unused variable in a linear context.")
 let _UNIFICATION_ERROR_INF_LOOP = Errors.Type_error 
   ("Stumbled into infinite loop of type variables during unification.")
 let _UNIFICATION_ERROR_BASE_ARROW = Errors.Type_error 
-  ("Found a unification of a base type with an arrow type. \newline
+  ("Found a unification of a base type with an arrow type.
     Non-functional applications perhaps?")
 let _UNIFICATION_ERROR_INCOMPAT_BASE = Errors.Type_error 
   ("Found a unification that attempts to unify disjoint types of a sum.")
@@ -34,10 +34,15 @@ let _UNIFICATION_ERROR_UNRESTR_TYPEVAR = Errors.Type_error
 
 (* *)
 (* Types related to type checking. *)
-type cctxOut = (livTyp * livTyp TypR.t * TypC.t)
+type cctxOut = livTyp * livTyp TypR.t * TypC.t
 type typCtx = livTyp TypR.t
 type mergeFunction = typCtx -> typCtx -> typCtx * TypC.t
 type checkFunction = livBinder -> livTyp -> typCtx -> TypC.t
+type tcOut = livTyp * TypC.t
+                                                        
+(* *)
+(* Type presets for easy input. *)
+type linearityBase = B_Linear | B_Mixed | B_Unrestricted
     
 (* *)
 (* Auxiliary functions. *)
@@ -163,13 +168,8 @@ let mixBrMerge (req1 : typCtx)
     TypC.empty malformedMerge in
     (fixedUpMerge, extraConstraints)
 
-let rec genUnrestrictedRec (l : (livBinder * livTyp) list) : TypC.elt list =
-  match l with
-  | [] -> []
-  | (_, typ) :: rest -> (Unrestricted typ) :: genUnrestrictedRec rest
-
 let genUnrestricted (ctx : typCtx) : TypC.t =
-  TypC.of_list (genUnrestrictedRec (TypR.to_list ctx))
+  TypC.of_list (List.map (fun (_, typ) -> Unrestricted typ) (TypR.to_list ctx))
 
 let linCheck (bind : livBinder) (typ : livTyp) (ctx : typCtx)
              : TypC.t =
@@ -231,10 +231,9 @@ let rec ccTc (mergeBranch : mergeFunction) (mergeSequence : mergeFunction)
     let (coreTyp, coreReq, coreCst) = 
       ccTc mergeBranch mergeSequence checkVariable coreTm in
     let extensionCst = checkVariable bnd bndTyp coreReq in
-    let merge = mergeSequence bndReq (coreReq /< bnd) in
-    let outReq = fst merge in
-    let outCst = bndCst %+ coreCst %+ extensionCst %+ (snd merge) in
-    (coreTyp, outReq, outCst)
+    let (req12, cst12) = mergeSequence bndReq (coreReq /< bnd) in
+    let outCst = bndCst %+ coreCst %+ extensionCst %+ cst12 in
+    (coreTyp, req12, outCst)
   | TIf (tm1, tm2, tm3) ->
     let (tm1Typ, tm1Req, tm1Cst) = 
       ccTc mergeBranch mergeSequence checkVariable tm1 in
@@ -256,7 +255,8 @@ let rec ccTc (mergeBranch : mergeFunction) (mergeSequence : mergeFunction)
       ccTc mergeBranch mergeSequence checkVariable tm in
     let freshTyp = TypeVar (TyVar.fresh ()) in
     let newCst = (%*) (Equal (search, Arrow (freshTyp, freshTyp))) in
-    let outCst = newCst %+ tmCst in
+    let unrCst = genUnrestricted tmReq in
+    let outCst = newCst %+ tmCst %+ unrCst in
     (freshTyp, tmReq, outCst)
   | TBinOp (op, tm1, tm2) -> 
     let (tm1Typ, tm1Req, tm1Cst) = 
@@ -300,8 +300,8 @@ let rec applySubst (substitution : livSubst) (examined : livTyp) : livTyp =
   match examined with
   | Base _ -> examined
   | TypeVar _ -> if (TypeVar search) = examined then subst else examined
-  | Arrow (t1, t2) -> Arrow (applySubst substitution t1, applySubst substitution t2)
-  (*DISSECT EXAMINED INTO POINTWISE COMPONENTS*)
+  | Arrow (t1, t2) -> Arrow (applySubst substitution t1, 
+                             applySubst substitution t2)
 
 let substConstraint (substitution : livSubst) (c : TypC.elt) : TypC.elt = 
   let (search, subst) = substitution in
@@ -384,11 +384,22 @@ let checkResolve
 
 let bobTypecheck 
   (mergeBranch : mergeFunction) (mergeSequence : mergeFunction) 
-  (checkVariable : checkFunction) (tm : livTerm) 
-  : (livTyp * TypC.t) =
+  (checkVariable : checkFunction) (tm : livTerm) : tcOut =
   let ((typ, _, cst), subst) = 
     checkResolve mergeBranch mergeSequence checkVariable tm in
   (closeSubsts subst typ, cst)
 
-let bobTypecheckSimple (tm : livTerm) : livTyp =
-  fst @@ bobTypecheck mixBrMerge mixSeqMerge linCheck tm
+(* Utility function for pretty-printing type checker output *)
+let pp_tcOut ?(verbose=false) (out : Format.formatter) ((t,c) : tcOut) =
+  if verbose
+  then Format.fprintf out "@[<hov>Term type:@ <%a>@;Under constraints:@ {%a}@]@."
+                          pp_livTyp t pp_TypC c
+  else Format.fprintf out "@[<hov>Term type:@ <%a>@]@." pp_livTyp t
+
+(* Type checking function with linearity presets. *)
+let typecheck (lb : linearityBase) (tm : livTerm) : tcOut =
+  match lb with
+  | B_Linear -> bobTypecheck linBrMerge linSeqMerge linCheck tm
+  | B_Mixed -> bobTypecheck mixBrMerge mixSeqMerge mixCheck tm
+  | B_Unrestricted -> bobTypecheck unrMerge unrMerge unrCheck tm
+

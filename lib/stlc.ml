@@ -23,7 +23,15 @@ type livBase = Integer
 type livTyp = TypeVar of TyVar.t
             | Base of livBase
             | Arrow of livTyp * livTyp 
-            [@@deriving show]
+                       
+let rec pp_livTyp (out : Format.formatter) (t : livTyp) =
+  match t with
+  | TypeVar tv -> Format.fprintf out "%s" tv
+  | Base b -> (match b with
+               | Integer -> Format.fprintf out "%s" "Int"
+               | Boolean -> Format.fprintf out "%s" "Bool")
+  | Arrow (t1, t2) -> Format.fprintf out "@[<hov>%a ->@ %a@]" 
+                                     pp_livTyp t1 pp_livTyp t2
 
 (* STLC binary operations *)
 type livBinOp = Plus | Minus | Mult | Div
@@ -74,6 +82,12 @@ and gremEnv = (livVar * gremVal) list
 type livConstraint = Unrestricted of livTyp 
                    | Equal of livTyp * livTyp
 
+let pp_livConstraint (out : Format.formatter) (c : livConstraint) =
+  match c with
+  | Unrestricted t -> Format.fprintf out "@[<hov>\u{1D580} %a@]" pp_livTyp t
+  | Equal (t1,t2) -> Format.fprintf out "@[<hov>%a@ \u{2250}@ %a@]" 
+                                      pp_livTyp t1 pp_livTyp t2
+
 module TypC = Set.Make (struct
   type t = livConstraint
   let compare e1 e2 = match e1, e2 with
@@ -82,6 +96,11 @@ module TypC = Set.Make (struct
                       | Unrestricted e1, Equal (e2, _)
                       | Equal (e1, _), Equal (e2, _) -> Stdlib.compare e1 e2
 end)
+
+let pp_TypC (out : Format.formatter) (c : TypC.t) =
+  let c_list = TypC.to_list c in
+  Format.(pp_print_list ~pp_sep:(fun ppf () -> fprintf ppf ", ")) 
+          pp_livConstraint out c_list
 
 module TypR = Map.Make (struct
   type t = livBinder
