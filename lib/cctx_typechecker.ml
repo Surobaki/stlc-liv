@@ -302,6 +302,8 @@ let rec applySubst (substitution : livSubst) (examined : livTyp) : livTyp =
   | TypeVar _ -> if (TypeVar search) = examined then subst else examined
   | Product (t1, t2) -> Product (applySubst substitution t1,
                                  applySubst substitution t2)
+  | Sum (t1, t2) -> Sum (applySubst substitution t1,
+                         applySubst substitution t2)
   | Arrow (t1, t2) -> Arrow (applySubst substitution t1, 
                              applySubst substitution t2)
 
@@ -327,6 +329,7 @@ let rec checkUnrestr (constrTyp : livTyp) : bool =
   | Arrow (t1, t2) -> checkUnrestr t1 && checkUnrestr t2
   | TypeVar _ -> false
   | Product (t1, t2) -> checkUnrestr t1 && checkUnrestr t2 
+  | Sum (t1, t2) -> checkUnrestr t1 && checkUnrestr t2 
 
 let linearityCheck (constraintSubjects : livTyp list) : livTyp list =
   List.filter checkUnrestr constraintSubjects
