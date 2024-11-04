@@ -25,6 +25,12 @@ type livTyp = TypeVar of TyVar.t
             | Sum of livTyp * livTyp
             | Base of livBase
             | Arrow of livTyp * livTyp 
+and sessTyp = Send of livTyp * sessTyp
+            | Receive of livTyp * sessTyp
+            | SendChoice of sessTyp list
+            | ReceiveChoice of sessTyp list
+            | Channel of TyVar.t
+            | End
                        
 let rec pp_livTyp (out : Format.formatter) (t : livTyp) =
   match t with
@@ -38,6 +44,22 @@ let rec pp_livTyp (out : Format.formatter) (t : livTyp) =
                | Boolean -> Format.fprintf out "%s" "Bool")
   | Arrow (t1, t2) -> Format.fprintf out "@[<hov>%a ->@ %a@]" 
                                      pp_livTyp t1 pp_livTyp t2
+and pp_sessTyp (out : Format.formatter) (s : sessTyp) =
+  match s with 
+  | Send (t, s') -> Format.fprintf out "@[<hov>!%a.%a@]"
+                                   pp_livTyp t pp_sessTyp s' 
+  | Receive (t, s') -> Format.fprintf out "@[<hov>?%a.%a@]"
+                                           pp_livTyp t pp_sessTyp s' 
+  | SendChoice ss -> Format.fprintf out "@[<hov>⊕〈%a〉@]"
+                       (Format.pp_print_list
+                       ~pp_sep:(fun ppf () -> Format.fprintf ppf ",@ ")
+                       pp_sessTyp) ss
+  | ReceiveChoice ss -> Format.fprintf out "@[<hov>&〈%a〉@]"
+                       (Format.pp_print_list
+                       ~pp_sep:(fun ppf () -> Format.fprintf ppf ",@ ")
+                       pp_sessTyp) ss
+  | Channel c -> Format.print_string c
+  | End -> Format.print_string "end"
 
 (* STLC binary operations *)
 type livBinOp = Plus | Minus | Mult | Div
