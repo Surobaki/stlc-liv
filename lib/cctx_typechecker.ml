@@ -307,6 +307,8 @@ let rec applySubst (substitution : livSubst) (examined : livTyp) : livTyp =
                          applySubst substitution t2)
   | Arrow (t1, t2) -> Arrow (applySubst substitution t1, 
                              applySubst substitution t2)
+  | LinearArrow (t1, t2) -> LinearArrow (applySubst substitution t1, 
+                                         applySubst substitution t2)
 
 let substConstraint (substitution : livSubst) (c : TypC.elt) : TypC.elt = 
   let (search, subst) = substitution in
@@ -329,6 +331,7 @@ let rec checkUnrestr (constrTyp : livTyp) : bool =
   | Base _ -> true
   | Unit -> true
   | Arrow (t1, t2) -> checkUnrestr t1 && checkUnrestr t2
+  | LinearArrow (t1, t2) -> (not @@ checkUnrestr t1) && checkUnrestr t2
   | TypeVar _ -> false
   | Product (t1, t2) -> checkUnrestr t1 && checkUnrestr t2 
   | Sum (t1, t2) -> checkUnrestr t1 && checkUnrestr t2 
