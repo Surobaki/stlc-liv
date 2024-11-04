@@ -299,6 +299,7 @@ let rec applySubst (substitution : livSubst) (examined : livTyp) : livTyp =
   let (search, subst) = substitution in
   match examined with
   | Base _ -> examined
+  | Unit -> Unit
   | TypeVar _ -> if (TypeVar search) = examined then subst else examined
   | Product (t1, t2) -> Product (applySubst substitution t1,
                                  applySubst substitution t2)
@@ -326,6 +327,7 @@ let closeSubsts (substitutions : livSubst list) (examined : livTyp) : livTyp =
 let rec checkUnrestr (constrTyp : livTyp) : bool =
   match constrTyp with
   | Base _ -> true
+  | Unit -> true
   | Arrow (t1, t2) -> checkUnrestr t1 && checkUnrestr t2
   | TypeVar _ -> false
   | Product (t1, t2) -> checkUnrestr t1 && checkUnrestr t2 

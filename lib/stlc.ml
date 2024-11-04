@@ -25,6 +25,7 @@ type livTyp = TypeVar of TyVar.t
             | Sum of livTyp * livTyp
             | Base of livBase
             | Arrow of livTyp * livTyp 
+            | Unit
 and sessTyp = Send of livTyp * sessTyp
             | Receive of livTyp * sessTyp
             | SendChoice of sessTyp list
@@ -44,6 +45,7 @@ let rec pp_livTyp (out : Format.formatter) (t : livTyp) =
                | Boolean -> Format.fprintf out "%s" "Bool")
   | Arrow (t1, t2) -> Format.fprintf out "@[<hov>%a ->@ %a@]" 
                                      pp_livTyp t1 pp_livTyp t2
+  | Unit -> Format.print_string "()"
 and pp_sessTyp (out : Format.formatter) (s : sessTyp) =
   match s with 
   | Send (t, s') -> Format.fprintf out "@[<hov>!%a.%a@]"
