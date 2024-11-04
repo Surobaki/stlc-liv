@@ -21,12 +21,15 @@ type livBase = Integer
 
 (* STLC type universe *)
 type livTyp = TypeVar of TyVar.t
+            | Product of livTyp * livTyp
             | Base of livBase
             | Arrow of livTyp * livTyp 
                        
 let rec pp_livTyp (out : Format.formatter) (t : livTyp) =
   match t with
   | TypeVar tv -> Format.fprintf out "%s" tv
+  | Product (t1, t2) -> Format.fprintf out "@[<hov>(%a,%a)@]"
+                                       pp_livTyp t1 pp_livTyp t2
   | Base b -> (match b with
                | Integer -> Format.fprintf out "%s" "Int"
                | Boolean -> Format.fprintf out "%s" "Bool")
