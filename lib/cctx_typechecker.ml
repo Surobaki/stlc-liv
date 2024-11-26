@@ -37,7 +37,7 @@ let _UNIFICATION_ERROR_UNRESTR_TYPEVAR = Errors.Type_error
 type cctxOut = livTyp * livTyp TypR.t * TypC.t
 type typCtx = livTyp TypR.t
 type mergeFunction = typCtx -> typCtx -> typCtx * TypC.t
-type checkFunction = livBinder -> livTyp -> typCtx -> TypC.t
+type checkFunction = livBinder -> typCtx -> livTyp * TypC.t
 type tcOut = livTyp * TypC.t
                                                         
 (* *)
@@ -171,26 +171,29 @@ let mixBrMerge (req1 : typCtx)
 let genUnrestricted (ctx : typCtx) : TypC.t =
   TypC.of_list (List.map (fun (_, typ) -> Unrestricted typ) (TypR.to_list ctx))
 
-let linCheck (bind : livBinder) (typ : livTyp) (ctx : typCtx)
-             : TypC.t =
-  if TypR.mem bind ctx then (%*) (Equal (ctx #< bind, typ))
+let linCheck (bind : livBinder) (ctx : typCtx)
+             : livTyp * TypC.t =
+  if TypR.mem bind ctx then (TypR.find bind ctx, (%.))
                        else raise _LINCHECK_VAR_NOT_FOUND
                            
-let mixCheck (bind : livBinder) (typ : livTyp) (ctx : typCtx)
-             : TypC.t =
-  if TypR.mem bind ctx then (%*) (Equal (ctx #< bind, typ))
-                       else (%*) (Unrestricted typ)
+let mixCheck (bind : livBinder) (ctx : typCtx)
+             : livTyp * TypC.t =
+  if TypR.mem bind ctx then (TypR.find bind ctx, (%.))
+                       else let freshType = TypeVar (TyVar.fresh ()) in
+                            (freshType, (%*) (Unrestricted freshType))
                            
-let unrCheck (bind : livBinder) (typ : livTyp) (ctx : typCtx)
-             : TypC.t =
-  if TypR.mem bind ctx then (%*) (Equal (ctx #< bind, typ))
-                       else (%.)
+let unrCheck (bind : livBinder) (ctx : typCtx)
+             : livTyp * TypC.t =
+  if TypR.mem bind ctx then (TypR.find bind ctx, (%.))
+                       else let freshType = TypeVar (TyVar.fresh ()) in
+                            (freshType, (%.))
 
 (* *)
 (* Typechecking section *)
 let rec ccTc (mergeBranch : mergeFunction) (mergeSequence : mergeFunction) 
              (checkVariable : checkFunction) (tm : livTerm) 
              : cctxOut =
+  let typeCheck = ccTc mergeBranch mergeSequence checkVariable in
   match tm with
   | TConstant (CInteger _) -> 
       (Base Integer, TypR.empty, TypC.empty)
@@ -200,47 +203,100 @@ let rec ccTc (mergeBranch : mergeFunction) (mergeSequence : mergeFunction)
     let freshTyp = TypeVar (TyVar.fresh ()) in
     let freshBind = (&*) (var, freshTyp) in
     (freshTyp, freshBind, TypC.empty)
+  | TUnit ->
+      (Unit, TypR.empty, TypC.empty)
+  (* Sequencing should follow equality: let _ = M in N === M;N with M:unit *)
+  | TSequence (bndTm, coreTm) ->
+    let (bndTyp, bndReq, bndCst) = typeCheck bndTm in
+    let (coreTyp, coreReq, coreCst) = typeCheck coreTm in
+    let (mergeReq, mergeCst) = mergeSequence bndReq coreReq in
+    let fixedCst = (%*) (Equal (bndTyp, Unit)) in
+    let outCst = bndCst %+ coreCst %+ mergeCst %+ fixedCst in
+    (coreTyp, mergeReq, outCst)
+  | TProduct (tm1, tm2) ->
+    let (tm1Typ, tm1Req, tm1Cst) = 
+      typeCheck tm1 in
+    let (tm2Typ, tm2Req, tm2Cst) = 
+      typeCheck tm2 in
+    let (tmMergeReq, tmMergeCst) = mergeSequence tm1Req tm2Req in
+    let tmCst = tm1Cst %+ tm2Cst %+ tmMergeCst in
+    (Product (tm1Typ, tm2Typ), tmMergeReq, tmCst)
   | TAbstract (bind, bndTyp, tm') ->
     let (tm'search, tm'Req, tm'Cst) = 
-      ccTc mergeBranch mergeSequence checkVariable tm' in
-    let bndCst = checkVariable bind bndTyp tm'Req in
-    let outCst = tm'Cst %+ bndCst in
+      typeCheck tm' in
+    let (newTyp, bndCst) = checkVariable bind tm'Req in
+    let correlatedCst = (%*) (Equal (bndTyp, newTyp)) in
+    let outCst = tm'Cst %+ bndCst %+ correlatedCst in
     let outReq = tm'Req /< bind in
     (Arrow (bndTyp, tm'search), outReq, outCst)
   | TLinAbstract (bind, bndTyp, tm') ->
     let (tm'search, tm'Req, tm'Cst) = 
-      ccTc mergeBranch mergeSequence checkVariable tm' in
-    let bndCst = checkVariable bind bndTyp tm'Req in
+      typeCheck tm' in
+    let (newTyp, bndCst) = checkVariable bind tm'Req in
+    let correlatedCst = (%*) (Equal (newTyp, bndTyp)) in
     let ctxLinCst = genUnrestricted tm'Req in
-    let outCst = tm'Cst %+ bndCst %+ ctxLinCst in
+    let outCst = tm'Cst %+ bndCst %+ ctxLinCst %+ correlatedCst in
     let outReq = tm'Req /< bind in
-    (Arrow (bndTyp, tm'search), outReq, outCst)
+    (LinearArrow (bndTyp, tm'search), outReq, outCst)
   | TApplication (tm1, tm2) ->
     let (tm1Typ, tm1Req, tm1Cst) = 
-      ccTc mergeBranch mergeSequence checkVariable tm1 in
+      typeCheck tm1 in
     let (tm2Typ, tm2Req, tm2Cst) = 
-      ccTc mergeBranch mergeSequence checkVariable tm2 in
+      typeCheck tm2 in
     let (req12, cst12) = mergeSequence tm1Req tm2Req in
     let freshTyp = TypeVar (TyVar.fresh ()) in
     let appCst = (%*) (Equal (tm1Typ, Arrow (tm2Typ, freshTyp))) in
     let outCst = tm1Cst %+ tm2Cst %+ appCst %+ cst12 in
     (freshTyp, req12, outCst)
+  | TInL tm ->
+    let (tmTyp, tmReq, tmCst) = typeCheck tm in
+    let newTyp = Sum (tmTyp, TypeVar (TyVar.fresh ())) in
+    (newTyp, tmReq, tmCst)
+  | TInR tm ->
+    let (tmTyp, tmReq, tmCst) = typeCheck tm in
+    let newTyp = Sum (TypeVar (TyVar.fresh ()), tmTyp) in
+    (newTyp, tmReq, tmCst)
+  | TCase (tmScrutinee, tm1Bind, tm1, tm2Bind, tm2) ->
+    let (tmScrutTyp, tmScrutReq, tmScrutCst) = typeCheck tmScrutinee in
+    let (tm1Typ, tm1Req, tm1Cst) = typeCheck tm1 in
+    let (_, tm2Req, tm2Cst) = typeCheck tm2 in
+    let (sum1Typ, sum1Cst) = checkVariable tm1Bind tm1Req in
+    let (sum2Typ, sum2Cst) = checkVariable tm2Bind tm2Req in
+    let (brMergeReq, brMergeCst) = mergeBranch (tm1Req) (tm2Req) in
+    let (seqMergeReq, seqMergeCst) = mergeSequence brMergeReq tmScrutReq in
+    let fixedCst = (%+) ((%*) (Equal (sum1Typ, sum2Typ))) 
+                        ((%*) (Equal (tmScrutTyp, Sum (sum1Typ, sum2Typ)))) in
+    let outCst = tm1Cst %+ tm2Cst %+ sum1Cst %+ sum2Cst %+ tmScrutCst
+                        %+ brMergeCst %+ seqMergeCst %+ fixedCst in
+    (tm1Typ, seqMergeReq, outCst)
   | TLet (bnd, bndTm, coreTm) -> 
     let (bndTyp, bndReq, bndCst) = 
-      ccTc mergeBranch mergeSequence checkVariable bndTm in
+      typeCheck bndTm in
     let (coreTyp, coreReq, coreCst) = 
-      ccTc mergeBranch mergeSequence checkVariable coreTm in
-    let extensionCst = checkVariable bnd bndTyp coreReq in
+      typeCheck coreTm in
+    let (newTyp, extensionCst) = checkVariable bnd coreReq in
+    let correlatedCst = (%*) (Equal (newTyp, bndTyp)) in
     let (req12, cst12) = mergeSequence bndReq (coreReq /< bnd) in
-    let outCst = bndCst %+ coreCst %+ extensionCst %+ cst12 in
+    let outCst = bndCst %+ coreCst %+ extensionCst %+ cst12 %+ correlatedCst in
     (coreTyp, req12, outCst)
+  | TLetProduct (bndLeft, bndRight, bndTm, coreTm) ->
+    let (bndTyp, bndReq, bndCst) = typeCheck bndTm in
+    let (coreTyp, coreReq, coreCst) = typeCheck coreTm in
+    let (mergeReq, mergeCst) = mergeSequence 
+                               bndReq ((coreReq /< bndLeft) /< bndRight) in
+    let (lProdTyp, lProdCst) = checkVariable bndLeft bndReq in
+    let (rProdTyp, rProdCst) = checkVariable bndRight bndReq in
+    let fixedCst = (%*) (Equal (bndTyp, Product (lProdTyp, rProdTyp))) in
+    let outCst = bndCst %+ coreCst %+ mergeCst 
+                        %+ lProdCst %+ rProdCst %+ fixedCst in
+    (coreTyp, mergeReq, outCst)
   | TIf (tm1, tm2, tm3) ->
     let (tm1Typ, tm1Req, tm1Cst) = 
-      ccTc mergeBranch mergeSequence checkVariable tm1 in
+      typeCheck tm1 in
     let (tm2Typ, tm2Req, tm2Cst) = 
-      ccTc mergeBranch mergeSequence checkVariable tm2 in
+      typeCheck tm2 in
     let (tm3Typ, tm3Req, tm3Cst) = 
-      ccTc mergeBranch mergeSequence checkVariable tm3 in
+      typeCheck tm3 in
     let (branchReq, branchCst) = mergeBranch tm2Req tm3Req in
     let (seqReq, seqCst) = mergeSequence tm1Req branchReq in
     let (req123, cst123) = (seqReq, branchCst %+ seqCst) in
@@ -252,7 +308,7 @@ let rec ccTc (mergeBranch : mergeFunction) (mergeSequence : mergeFunction)
     (tm2Typ, req123, outCst)
   | TFix (tm, search) -> 
     let (_, tmReq, tmCst) = 
-      ccTc mergeBranch mergeSequence checkVariable tm in
+      typeCheck tm in
     let freshTyp = TypeVar (TyVar.fresh ()) in
     let newCst = (%*) (Equal (search, Arrow (freshTyp, freshTyp))) in
     let unrCst = genUnrestricted tmReq in
@@ -260,9 +316,9 @@ let rec ccTc (mergeBranch : mergeFunction) (mergeSequence : mergeFunction)
     (freshTyp, tmReq, outCst)
   | TBinOp (op, tm1, tm2) -> 
     let (tm1Typ, tm1Req, tm1Cst) = 
-      ccTc mergeBranch mergeSequence checkVariable tm1 in
+      typeCheck tm1 in
     let (tm2Typ, tm2Req, tm2Cst) = 
-      ccTc mergeBranch mergeSequence checkVariable tm2 in
+      typeCheck tm2 in
     let (tm12Req, mergeCst) = mergeSequence tm1Req tm2Req in
     let tm12Cst = tm1Cst %+ tm2Cst %+ mergeCst in
     (match op with

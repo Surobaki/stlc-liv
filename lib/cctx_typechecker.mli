@@ -4,7 +4,7 @@ type cctxOut = livTyp * livTyp TypR.t * TypC.t
 type typCtx = livTyp TypR.t
 type livSubst = TyVar.t * livTyp
 type mergeFunction = typCtx -> typCtx -> typCtx * TypC.t
-type checkFunction = livBinder -> livTyp -> typCtx -> TypC.t
+type checkFunction = livBinder -> typCtx -> livTyp * TypC.t
 type tcOut = livTyp * TypC.t
 type linearityBase = B_Linear | B_Mixed | B_Unrestricted
 

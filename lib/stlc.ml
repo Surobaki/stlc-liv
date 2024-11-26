@@ -96,6 +96,14 @@ type livTerm = TConstant of livConst
              (* PCF Extensions *)
              | TLinAbstract of livBinder * livTyp * livTerm
              (* Linear abstraction *)
+             | TProduct of livTerm * livTerm
+             | TLetProduct of livBinder * livBinder * livTerm * livTerm
+             | TInL of livTerm
+             | TInR of livTerm 
+             | TCase of livTerm * livBinder * livTerm * livBinder * livTerm
+             | TUnit
+             | TSequence of livTerm * livTerm
+             (* Extended types *)
              | TBinOp of livBinOp * livTerm * livTerm
              (* Technically binary operators are constants in the language *)
              [@@deriving show]
