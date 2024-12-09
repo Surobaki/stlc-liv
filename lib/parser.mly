@@ -94,7 +94,7 @@ expr:
   (* Sequencing *)
   | e1 = expr SEMICOLON e2 = expr { TSequence (e1, e2) }
   (* Session stuff *)
-  | SEND e1 = expr e2 = expr { TSend (e1, e2) }
+  | SEND e1 = fact e2 = expr { TSend (e1, e2) }
   | RECEIVE e = expr { TReceive e }
   | FORK e = expr { TFork e }
   | WAIT e = expr { TWait e }

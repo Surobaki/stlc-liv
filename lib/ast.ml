@@ -15,10 +15,10 @@ end
 
 module STyVar = TyVar
 
-(* STLC base types *)
+(* Base types *)
 type baseType = Integer | Boolean
 
-(* STLC types *)
+(* Types *)
 type typ = TypeVar of TyVar.t
          | Product of typ * typ
          | Sum of typ * typ
@@ -28,6 +28,7 @@ type typ = TypeVar of TyVar.t
          | Unit
          | Session of sessTyp
          | Dual of typ
+(* Session types *)
 and sessTyp = STypeVar of STyVar.t
             | Send of typ * sessTyp
             | Receive of typ * sessTyp
@@ -36,21 +37,21 @@ and sessTyp = STypeVar of STyVar.t
             | SendEnd
             | ReceiveEnd
 
-(* STLC binary operations *)
+(* Binary operations *)
 type binOp = Plus | Minus | Mult | Div
            | Lt | Le | Gt | Ge | Eq | Neq
 
-(* STLC constants *)
+(* Constants *)
 type constTerm = CInteger of int
                | CBoolean of bool
 
-(* STLC variables *)
+(* Variable names, might be useless *)
 type varName = string
 
-(* Binders of lambdas *)
+(* Binders *)
 type binder = string
 
-(* Terms of STLC *)
+(* Terms *)
 type term = 
   (* Simply Typed Lambda Calculus *)
   | TConstant of constTerm
