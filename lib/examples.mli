@@ -1,4 +1,4 @@
-open Stlc
+open Ast
 
 val ex1 : livTerm
 val ex2 : livTerm

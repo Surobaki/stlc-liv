@@ -1,10 +1,11 @@
 (ocamllex
-  (modules stlc_lexrules)
+ (modules lexer)
 )
 (menhir
-  (modules stlc_parser)
+  (modules parser)
 )
 (library
-  (name STLC)
+  (name CoreLang)
   (preprocess (pps ppx_deriving.show))
 )
+

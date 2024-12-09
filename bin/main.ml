@@ -1,6 +1,6 @@
-open STLC.Errors
-open STLC.Cctx_typechecker
-open STLC.Parse_wrapper
+open CoreLang.Errors
+open CoreLang.Cctx_typechecker
+open CoreLang.Parse_wrapper
 open Out_channel
        
 let _ERR_NO_FILE = Runtime_error "Missing input files."

@@ -1,5 +1,5 @@
 open Errors
-open Stlc_lexrules
+open Lexer
 open Lexing
 
 let print_position ppf lexbuf =
@@ -8,11 +8,11 @@ let print_position ppf lexbuf =
     pos.pos_lnum (pos.pos_cnum - pos.pos_bol + 1)
 
 let parse_with_error lexbuf =
-  try Stlc_parser.expr_main tokenise lexbuf with
+  try Parser.expr_main tokenise lexbuf with
   | Syntax_error msg ->
     let msg = Format.asprintf "%a: %s" print_position lexbuf msg in
     raise (Errors.Parse_error msg)
-  | Stlc_parser.Error ->
+  | Parser.Error ->
     let msg = Format.asprintf "%a: syntax error" print_position lexbuf in
     raise (Parse_error msg)
 

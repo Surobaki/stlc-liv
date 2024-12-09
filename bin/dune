@@ -1,5 +1,5 @@
 (executable
- (public_name STLC)
+ (public_name Ntextual)
  (name main)
- (libraries STLC)
+ (libraries CoreLang)
 )

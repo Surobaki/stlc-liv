@@ -1,7 +1,7 @@
 (lang dune 3.13)
 (using menhir 2.1)
 
-(name STLC)
+(name Ntextual)
 
 (generate_opam_files true)
 
@@ -15,9 +15,9 @@
 (license LICENSE)
 
 (package
- (name STLC)
- (synopsis "Implementation of Simply Typed Lambda Calculus")
- (description "A Simply Typed Lambda Calculus with an interpreter and type checker")
+ (name Ntextual)
+ (synopsis "A co-contextual lambda calculus with sessions")
+ (description "A co-contextual type checker (alongside a basic parser and lexer) for a session-typed language.")
  (depends
    (ocaml (>= 5.3))
    dune

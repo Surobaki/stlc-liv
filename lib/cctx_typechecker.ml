@@ -1,4 +1,4 @@
-open Stlc
+open Ast
 
 (* *)
 (* Define errors relevant to type checking. *)

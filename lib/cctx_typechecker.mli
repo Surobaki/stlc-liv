@@ -1,4 +1,4 @@
-open Stlc
+open Ast
 
 type cctxOut = livTyp * livTyp TypR.t * TypC.t
 type typCtx = livTyp TypR.t
