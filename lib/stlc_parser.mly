@@ -12,13 +12,11 @@
 %token LPAREN RPAREN
 
 (* Type construction grammar *)
-%token TYINT TYBOOL
+%token TYINT TYBOOL UNIT
 %token ARROW LOLLI
-%token BANG QSTNMARK
+%token BANG QSTNMARK AMPERSAND
 %token COLON DOT
 %token ENDBANG ENDQUERY
-%token UNIT
-%token AMPERSAND
 %token LANGLE RANGLE
 
 (* Common language constructions *)
