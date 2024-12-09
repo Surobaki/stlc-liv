@@ -32,12 +32,40 @@ rule tokenise = parse
     { BOOL true }
   | "false"
     { BOOL false }
+  | "match"
+    { MATCH }
+  | "with"
+    { WITH }
+  | "fork"
+    { FORK }
+  | "wait"
+    { WAIT }
+  | "inl"
+    { INL }
+  | "inr"
+    { INR }
+  | "send"
+    { SEND }
+  | "receive"
+    { RECEIVE }
+  | "endbang"
+    { ENDBANG }
+  | "endquery"
+    { ENDQUERY }
   | "->"
     { ARROW }
+  | "-@"
+    { LOLLI }
   | "Int"
     { TYINT }
   | "Bool"
     { TYBOOL }
+  | "Unit"
+    { UNIT }
+  | '@'
+    { AT }
+  | ','
+    { COMMA }
   | '+'
     { PLUS }
   | '-'
@@ -70,6 +98,10 @@ rule tokenise = parse
     { THEN }
   | "else"
     { ELSE }
+  | '<'
+    { LANGLE }
+  | '>'
+    { RANGLE }
   | def_id as var 
     { VARIABLE var }
   | '('
@@ -80,9 +112,17 @@ rule tokenise = parse
     { LAMBDA }
   | '='
     { EQUALS }
+  | ';'
+    { SEMICOLON }
   | ':'
     { COLON }
   | '.'
     { DOT }
+  | '!'
+    { BANG }
+  | '?'
+    { QSTNMARK }
+  | '&'
+    { AMPERSAND }
   | eof
     { EOF }

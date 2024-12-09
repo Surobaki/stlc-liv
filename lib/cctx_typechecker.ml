@@ -62,7 +62,11 @@ let ( %. ) = TypC.empty
 let unpackTyp ((search, _, _) : cctxOut) = search
 let unpackReq ((_, req, _) : cctxOut) = req
 let unpackCst ((_, _, cst) : cctxOut) = cst
-  
+let unwrapSesh (st : livTyp) : sessTyp option = 
+  match st with 
+  | Session s -> Some s 
+  | _ -> None
+
 let linSeqMerge (req1 : typCtx) 
                 (req2 : typCtx) : typCtx * TypC.t =
   let malformedMerge = TypR.bindings (TypR.merge
@@ -314,6 +318,37 @@ let rec ccTc (mergeBranch : mergeFunction) (mergeSequence : mergeFunction)
     let unrCst = genUnrestricted tmReq in
     let outCst = newCst %+ tmCst %+ unrCst in
     (freshTyp, tmReq, outCst)
+  | TSend (tm1, tm2) ->
+    let (tm1Typ, tm1Req, tm1Cst) = typeCheck tm1 in
+    let (tm2Typ, tm2Req, tm2Cst) = typeCheck tm2 in
+    let (mergeReq, mergeCst) = mergeSequence tm1Req tm2Req in
+    let freshSesh = STypeVar (STyVar.fresh ()) in
+    let receivedSesh = Session freshSesh in
+    let fixedCst = (%*) (Equal (tm2Typ, (Session (Send (tm1Typ, freshSesh))))) in
+    let outCst = tm1Cst %+ tm2Cst %+ mergeCst %+ fixedCst in
+    (receivedSesh, mergeReq, outCst)
+  | TReceive tm ->
+    let (tmTyp, tmReq, tmCst) = typeCheck tm in
+    let receivedFresh = TypeVar (TyVar.fresh ()) in
+    let freshSesh = STypeVar (STyVar.fresh ()) in
+    let receivedSesh = Session freshSesh in
+    let fixedCst = (%*) 
+                   (Equal (tmTyp, Session (Receive (receivedFresh, freshSesh)))) in
+    let outCst = tmCst %+ fixedCst in
+    (Product (receivedFresh, receivedSesh), tmReq, outCst)
+  | TFork tm ->
+    let (tmTyp, tmReq, tmCst) = typeCheck tm in
+    let receivedSesh = TypeVar (TyVar.fresh ()) in
+    let fixedCst = (%*) 
+                   (Equal (tmTyp, 
+                           LinearArrow (receivedSesh, Session SendEnd))) in
+    let outCst = tmCst %+ fixedCst in
+    (Dual receivedSesh, tmReq, outCst)
+  | TWait tm ->
+    let (tmTyp, tmReq, tmCst) = typeCheck tm in
+    let fixedCst = (%*) (Equal (tmTyp, Session ReceiveEnd)) in
+    let outCst = tmCst %+ fixedCst in
+    (Unit, tmReq, outCst)
   | TBinOp (op, tm1, tm2) -> 
     let (tm1Typ, tm1Req, tm1Cst) = 
       typeCheck tm1 in
@@ -365,6 +400,31 @@ let rec applySubst (substitution : livSubst) (examined : livTyp) : livTyp =
                              applySubst substitution t2)
   | LinearArrow (t1, t2) -> LinearArrow (applySubst substitution t1, 
                                          applySubst substitution t2)
+  | Session s -> Session (applySubstSession substitution s)
+  | Dual t -> Dual (applySubst substitution t)
+and applySubstSession (substitution : livSubst) (examined : sessTyp) : sessTyp = 
+  let (search, subst) = substitution in
+  match examined with
+  | STypeVar vId -> (match (unwrapSesh subst) with
+                    | Some s -> if search = vId then s else examined
+                    | None -> raise (Errors.Type_error "SHIT'S GONE HAYWIRE"))
+                    (* TODO: Give nice error message *)
+  | Send (t, s) -> Send (applySubst substitution t, 
+                         applySubstSession substitution s)
+  | Receive (t, s) -> Receive (applySubst substitution t, 
+                               applySubstSession substitution s)
+  | SendChoice ss -> SendChoice 
+                     (List.fold_right 
+                       (fun el acc -> 
+                         applySubstSession substitution el :: acc) 
+                       ss [])
+  | ReceiveChoice ss -> ReceiveChoice
+                     (List.fold_right 
+                       (fun el acc -> 
+                         applySubstSession substitution el :: acc) 
+                       ss [])
+  | SendEnd -> SendEnd
+  | ReceiveEnd -> ReceiveEnd
 
 let substConstraint (substitution : livSubst) (c : TypC.elt) : TypC.elt = 
   let (search, subst) = substitution in
@@ -391,6 +451,8 @@ let rec checkUnrestr (constrTyp : livTyp) : bool =
   | TypeVar _ -> false
   | Product (t1, t2) -> checkUnrestr t1 && checkUnrestr t2 
   | Sum (t1, t2) -> checkUnrestr t1 && checkUnrestr t2 
+  | Session _ -> false
+  | Dual _ -> false
 
 let linearityCheck (constraintSubjects : livTyp list) : livTyp list =
   List.filter checkUnrestr constraintSubjects
