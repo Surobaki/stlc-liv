@@ -1,17 +1,17 @@
 open Ast
 
-type cctxOut = livTyp * livTyp TypR.t * TypC.t
-type typCtx = livTyp TypR.t
-type livSubst = TyVar.t * livTyp
+type cctxOut = typ * typ TypR.t * TypC.t
+type typCtx = typ TypR.t
+type livSubst = TyVar.t * typ
 type mergeFunction = typCtx -> typCtx -> typCtx * TypC.t
-type checkFunction = livBinder -> typCtx -> livTyp * TypC.t
-type tcOut = livTyp * TypC.t
+type checkFunction = binder -> typCtx -> typ * TypC.t
+type tcOut = typ * TypC.t
 type linearityBase = B_Linear | B_Mixed | B_Unrestricted
 
 val ccTc : mergeFunction -> mergeFunction -> checkFunction ->
-           livTerm -> cctxOut
+           term -> cctxOut
 
-val unpackTyp : cctxOut -> livTyp
+val unpackTyp : cctxOut -> typ
 val unpackReq : cctxOut -> typCtx
 val unpackCst : cctxOut -> TypC.t
 
@@ -24,12 +24,12 @@ val linCheck    : checkFunction
 val unrCheck    : checkFunction
 val mixCheck    : checkFunction
 
-val closeSubsts : livSubst list -> livTyp -> livTyp
+val closeSubsts : livSubst list -> typ -> typ
 
 val resolveConstraints : TypC.t -> livSubst list
 
 val bobTypecheck : mergeFunction -> mergeFunction -> checkFunction ->
-                   livTerm -> tcOut
-val typecheck : linearityBase -> livTerm -> tcOut
+                   term -> tcOut
+val typecheck : linearityBase -> term -> tcOut
 
 val pp_tcOut : ?verbose:bool -> Format.formatter -> tcOut -> unit

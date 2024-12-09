@@ -1,7 +1,7 @@
 open Ast
 
-val ex1 : livTerm
-val ex2 : livTerm
-val ex3 : livTerm
-val ex4 : livTerm
-val ex5 : livTerm
+val ex1 : term
+val ex2 : term
+val ex3 : term
+val ex4 : term
+val ex5 : term
