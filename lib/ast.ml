@@ -149,9 +149,9 @@ and pp_sessTyp (out : Format.formatter) (s : sessTyp) =
   | SendEnd -> Format.print_string "end!"
   | ReceiveEnd -> Format.print_string "end?"
 
-let pp_constTermraint (out : Format.formatter) (c : typConstraint) =
+let pp_typConstraint (out : Format.formatter) (c : typConstraint) =
   match c with
-  | Unrestricted (t) -> Format.fprintf out 
+  | Unrestricted t -> Format.fprintf out 
                         "@[<hov>\u{1D580} %a@]" pp_typ t
   | Equal (t1, t2) -> Format.fprintf out 
                       "@[<hov>%a@ \u{2250}@ %a@]" 
@@ -160,7 +160,7 @@ let pp_constTermraint (out : Format.formatter) (c : typConstraint) =
 let pp_TypC (out : Format.formatter) (c : TypC.t) =
   let c_list = TypC.to_list c in
   Format.(pp_print_list ~pp_sep:(fun ppf () -> fprintf ppf ", ")) 
-    pp_constTermraint out c_list
+    pp_typConstraint out c_list
 
 let pp_binOp (out : Format.formatter) (bin_op : binOp) =
   match bin_op with
@@ -274,5 +274,4 @@ and pp_evalEnv (out : Format.formatter) (env : evalEnv) =
   in
   Format.pp_print_list ~pp_sep:(fun ppf () -> Format.fprintf ppf ", ")
   pp_evalEnvEl out env
-
                            
