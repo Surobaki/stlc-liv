@@ -13,7 +13,19 @@ module TyVar = struct
   let pp = Format.pp_print_string
 end
 
-module STyVar = TyVar
+module STyVar = struct
+  type t = string
+  let source = ref 0
+
+  let reset () = source := 0
+
+  let fresh ?(prefix="_S") () =
+    let sym = !source in
+    let () = incr source in
+    prefix ^ (string_of_int sym)
+
+  let pp = Format.pp_print_string
+end
 
 (* Base types *)
 type baseType = Integer | Boolean
@@ -99,8 +111,10 @@ module TypC = Set.Make (struct
     let compare e1 e2 = match e1, e2 with
       | Unrestricted e1, Unrestricted e2
       | Equal (e1, _), Unrestricted e2
-      | Unrestricted e1, Equal (e2, _)
-      | Equal (e1, _), Equal (e2, _) -> Stdlib.compare e1 e2
+      | Unrestricted e1, Equal (e2, _) -> Stdlib.compare e1 e2
+      | Equal (e11, e12), Equal (e21, e22) -> if e11 = e21 
+                                             then Stdlib.compare e12 e22
+                                             else Stdlib.compare e11 e21
   end)
 
 (* Typing environments *)
@@ -162,6 +176,14 @@ let pp_TypC (out : Format.formatter) (c : TypC.t) =
   let c_list = TypC.to_list c in
   Format.(pp_print_list ~pp_sep:(fun ppf () -> fprintf ppf ", ")) 
     pp_typConstraint out c_list
+    
+let pp_typBinding (out : Format.formatter) ((s, t) : string * typ) =
+  Format.fprintf out "@[<hov>%a@ ->@ %a@]" Format.pp_print_string s pp_typ t
+
+let pp_TypR (out : Format.formatter) (r : typ TypR.t) =
+  let r_list = TypR.to_list r in
+  Format.(pp_print_list ~pp_sep:(fun ppf () -> fprintf ppf ", ")) 
+    pp_typBinding out r_list
 
 let pp_binOp (out : Format.formatter) (bin_op : binOp) =
   match bin_op with

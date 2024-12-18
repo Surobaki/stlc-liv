@@ -24,7 +24,7 @@ let _UNIFICATION_ERROR_BASE_ARROW = Errors.Type_error
   ("Found a unification of a base type with an arrow type.
     Non-functional applications perhaps?")
 let _UNIFICATION_ERROR_INCOMPAT_BASE = Errors.Type_error 
-  ("Found a unification that attempts to unify disjoint types of a sum.")
+  ("Found a unification that attempts to unify incompatible base types.")
 let _UNIFICATION_ERROR_OTHER = Errors.Type_error 
   ("Discovered an edge-case constraint unification type error.")
 let _UNIFICATION_OCCURS_CHECK_FAILURE = Errors.Type_error
@@ -282,14 +282,19 @@ let rec ccTc (mergeBranch : mergeFunction) (mergeSequence : mergeFunction)
     let correlatedCst = (%*) (Equal (newTyp, bndTyp)) in
     let (req12, cst12) = mergeSequence bndReq (coreReq /< bnd) in
     let outCst = bndCst %+ coreCst %+ extensionCst %+ cst12 %+ correlatedCst in
+    let () = pp_TypC (Format.get_std_formatter ()) bndCst in
+    let () = pp_TypC (Format.get_std_formatter ()) coreCst in
+    let () = pp_TypC (Format.get_std_formatter ()) extensionCst in
+    let () = pp_TypC (Format.get_std_formatter ()) cst12 in
+    let () = pp_TypC (Format.get_std_formatter ()) correlatedCst in
     (coreTyp, req12, outCst)
   | TLetProduct (bndLeft, bndRight, bndTm, coreTm) ->
     let (bndTyp, bndReq, bndCst) = typeCheck bndTm in
     let (coreTyp, coreReq, coreCst) = typeCheck coreTm in
     let (mergeReq, mergeCst) = mergeSequence 
                                bndReq ((coreReq /< bndLeft) /< bndRight) in
-    let (lProdTyp, lProdCst) = checkVariable bndLeft bndReq in
-    let (rProdTyp, rProdCst) = checkVariable bndRight bndReq in
+    let (lProdTyp, lProdCst) = checkVariable bndLeft coreReq in
+    let (rProdTyp, rProdCst) = checkVariable bndRight coreReq in
     let fixedCst = (%*) (Equal (bndTyp, Product (lProdTyp, rProdTyp))) in
     let outCst = bndCst %+ coreCst %+ mergeCst 
                         %+ lProdCst %+ rProdCst %+ fixedCst in
@@ -377,38 +382,49 @@ let rec ccTc (mergeBranch : mergeFunction) (mergeSequence : mergeFunction)
 
 (* *)
 (* Unification section *)
-type livSubst = TyVar.t * typ
+type livSubst = binder * typ
 
-let rec occursCheck (typ : typ) (checkSubject : typ) : bool = 
+let rec occursCheck (t : typ) (checkSubject : typ) : bool = 
   match checkSubject with
-  | Arrow (_, sbj2) -> 
-           if sbj2 = typ then true
-           else occursCheck typ sbj2
-  | sbj -> typ = sbj
+  | LinearArrow (_, sbj2) | Arrow (_, sbj2) -> 
+           if sbj2 = t then true
+           else occursCheck t sbj2
+  | Session sbj -> occursCheckSess t sbj
+  | sbj -> t = sbj
+and occursCheckSess (t : typ) (checkSubject : sessTyp) : bool =
+  match t with
+  | TypeVar _ ->
+    (match checkSubject with
+    | Send (head, cont) | Receive (head, cont) -> head = t 
+                                                  || occursCheckSess t cont
+    | SendChoice s | ReceiveChoice s -> List.exists (occursCheckSess t) s
+    | _ -> false)
+  | Session STypeVar sId ->
+    (match checkSubject with
+    | Send (_, cont) | Receive (_, cont) -> cont = STypeVar sId
+    | SendChoice s | ReceiveChoice s -> List.exists ((=) (STypeVar sId)) s 
+    | _ -> false)
+  | _ -> false
 
 let rec applySubst (substitution : livSubst) (examined : typ) : typ =
+  let applyRec = applySubst substitution in
   let (search, subst) = substitution in
   match examined with
   | Base _ -> examined
   | Unit -> Unit
   | TypeVar _ -> if (TypeVar search) = examined then subst else examined
-  | Product (t1, t2) -> Product (applySubst substitution t1,
-                                 applySubst substitution t2)
-  | Sum (t1, t2) -> Sum (applySubst substitution t1,
-                         applySubst substitution t2)
-  | Arrow (t1, t2) -> Arrow (applySubst substitution t1, 
-                             applySubst substitution t2)
-  | LinearArrow (t1, t2) -> LinearArrow (applySubst substitution t1, 
-                                         applySubst substitution t2)
+  | Product (t1, t2) -> Product (applyRec t1, applyRec t2)
+  | Sum (t1, t2) -> Sum (applyRec t1, applyRec t2)
+  | Arrow (t1, t2) -> Arrow (applyRec t1, applyRec t2)
+  | LinearArrow (t1, t2) -> LinearArrow (applyRec t1, applyRec t2)
   | Session s -> Session (applySubstSession substitution s)
-  | Dual t -> Dual (applySubst substitution t)
+  | Dual t -> Dual (applyRec t)
 and applySubstSession (substitution : livSubst) (examined : sessTyp) : sessTyp = 
   let (search, subst) = substitution in
   match examined with
   | STypeVar vId -> (match (unwrapSesh subst) with
                     | Some s -> if search = vId then s else examined
-                    | None -> raise (Errors.Type_error "SHIT'S GONE HAYWIRE"))
-                    (* TODO: Give nice error message *)
+                    | None -> STypeVar vId)
   | Send (t, s) -> Send (applySubst substitution t, 
                          applySubstSession substitution s)
   | Receive (t, s) -> Receive (applySubst substitution t, 
@@ -427,11 +443,10 @@ and applySubstSession (substitution : livSubst) (examined : sessTyp) : sessTyp =
   | ReceiveEnd -> ReceiveEnd
 
 let substConstraint (substitution : livSubst) (c : TypC.elt) : TypC.elt = 
-  let (search, subst) = substitution in
   match c with
-  | Unrestricted t -> Unrestricted (applySubst (search, subst) t)
-  | Equal (t1, t2) -> Equal (applySubst (search, subst) t1,
-                             applySubst (search, subst) t2)
+  | Unrestricted t -> Unrestricted (applySubst substitution t)
+  | Equal (t1, t2) -> Equal (applySubst substitution t1,
+                             applySubst substitution t2)
 
 let substConstraints (substitution : livSubst) 
                      (cs : TypC.elt list) : TypC.elt list =
@@ -457,6 +472,24 @@ let rec checkUnrestr (constrTyp : typ) : bool =
 let linearityCheck (constraintSubjects : typ list) : typ list =
   List.filter checkUnrestr constraintSubjects
 
+let rec decomposeSessionEquality ((s1, s2) : sessTyp * sessTyp) 
+                                 : TypC.elt list =
+  match (s1, s2) with
+  | (Send (h1, cont1), Send (h2, cont2)) 
+  | (Receive (h1, cont1), Receive (h2, cont2)) -> 
+      (Equal (h1, h2)) :: decomposeSessionEquality (cont1, cont2)
+  | (STypeVar sId, s) | (s, STypeVar sId) -> 
+      Equal (Session (STypeVar sId), Session s) :: []
+  | (SendChoice ss1, SendChoice ss2) | (ReceiveChoice ss1, ReceiveChoice ss2) ->
+    if List.length ss1 = List.length ss2 then
+      List.fold_right (fun el acc -> decomposeSessionEquality el @ acc) 
+        (List.combine ss1 ss2) []
+    else raise (Errors.Type_error 
+                  "Mismatched arity of supposedly equal choice session types.")
+    (* TODO: Extract error *)
+  | (s1, s2) -> if s1 = s2 then [] 
+                else raise (Errors.Type_error "A case seems to have slipped through when decomposing equality constraints between two session types.")
+
 let rec unifyEqualities (constraints : TypC.elt list) : livSubst list =
   match constraints with
   | [] -> []
@@ -464,17 +497,36 @@ let rec unifyEqualities (constraints : TypC.elt list) : livSubst list =
     raise _UNIFICATION_ERROR_UNRESTR_TYPEVAR
   | (Equal (t1, t2)) :: rest ->
     (match t1, t2 with
+    (* Cases between a (session) type variable and a type are 
+       the important ones, everything else just tries to 
+       decompose complex types. *)
+    | (Session STypeVar v, Session ty) | (Session ty, Session STypeVar v) -> 
+      (* Is there any chance this could crash due to infinite recursion? A fix
+         would be to do the occurs check first. *)
+      let substituted = substConstraints (v, Session ty) rest in
+      if occursCheckSess (Session (STypeVar v)) ty then
+        let () = Format.printf "v: %a@;ty: %a@;" Format.pp_print_string v pp_sessTyp ty in
+        raise _UNIFICATION_OCCURS_CHECK_FAILURE
+      else 
+        (v, Session ty) :: unifyEqualities substituted
     | (TypeVar v, typ) | (typ, TypeVar v) ->
       let substituted = substConstraints (v, typ) rest in
       (match typ with 
-      | Arrow _ -> 
+      | LinearArrow (t1,t2) | Arrow (t1,t2) -> 
         if occursCheck (TypeVar v) typ then 
+        let () = Format.printf "t1: %a@;t2: %a AND %a@;" Format.pp_print_string v pp_typ t1 pp_typ t2 in
           raise _UNIFICATION_OCCURS_CHECK_FAILURE
         else (v, typ) :: unifyEqualities substituted 
       | _ -> (v, typ) :: unifyEqualities substituted
       )
-    | (Arrow (t1, t2), Arrow (l1, l2)) ->
-      unifyEqualities (Equal (t1, l1) :: Equal (t2, l2) :: rest)
+    (* Complex type decomposition *)
+    | (Arrow (t1, t2), Arrow (l1, l2))
+    | (LinearArrow (t1, t2), LinearArrow (l1, l2)) ->
+        unifyEqualities (Equal (t1, l1) :: Equal (t2, l2) :: rest)
+    | (Session s1, Session s2) ->
+        unifyEqualities ((decomposeSessionEquality (s1, s2)) @ rest)
+    | (Product (t1, t2), Product (l1, l2)) -> 
+        unifyEqualities (Equal (t1, l1) :: Equal (t2, l2) :: rest)
     | (t1, t2) -> if t1 = t2 then unifyEqualities rest
                   else raise _UNIFICATION_ERROR_INCOMPAT_BASE
     )
