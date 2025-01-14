@@ -26,6 +26,9 @@ let coolSeshFun = (\channel_tx :@ <?Int.!Int.?Int.endbang> .
   channel_tx) 
 in fork coolSeshFun|}
 
+(* Good example to have: use `fork coolSeshFun` and
+   perform the other side of the computation.Dual might prove to be difficult. *)
+
 let ex5_1 = parse_string {|
 let coolSeshFun = (\channel_tx :@ <?Int.!Int.?Int.endbang> .
   let (hundo, channel_tx1) = receive channel_tx in 
