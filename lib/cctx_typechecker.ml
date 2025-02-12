@@ -31,6 +31,10 @@ let _UNIFICATION_OCCURS_CHECK_FAILURE = Errors.Type_error
   ("The occurs check for a type variable failed.")
 let _UNIFICATION_ERROR_UNRESTR_TYPEVAR = Errors.Type_error
   ("The unification engine found an unrestricted type variable.")
+let _UNIFICATION_CHOICE_ARITY_MISMATCH = Errors.Type_error 
+  ("Mismatched arity of supposedly equal choice session types.")
+let _UNIFICATION_UNEXPECTED_DECOMPOSITION = Errors.Type_error 
+  ("A case seems to have slipped through when decomposing equality constraints between two session types.")
 
 (* *)
 (* Types related to type checking. *)
@@ -484,22 +488,19 @@ let rec decomposeSessionEquality ((s1, s2) : sessTyp * sessTyp)
     if List.length ss1 = List.length ss2 then
       List.fold_right (fun el acc -> decomposeSessionEquality el @ acc) 
         (List.combine ss1 ss2) []
-    else raise (Errors.Type_error 
-                  "Mismatched arity of supposedly equal choice session types.")
-    (* TODO: Extract error *)
+    else raise _UNIFICATION_CHOICE_ARITY_MISMATCH
   | (s1, s2) -> if s1 = s2 then [] 
-                else raise (Errors.Type_error "A case seems to have slipped through when decomposing equality constraints between two session types.")
+                else raise _UNIFICATION_UNEXPECTED_DECOMPOSITION
 
 let rec unifyEqualities (constraints : TypC.elt list) : livSubst list =
   match constraints with
   | [] -> []
   | (Unrestricted _) :: _ -> 
     raise _UNIFICATION_ERROR_UNRESTR_TYPEVAR
+  
   | (Equal (t1, t2)) :: rest ->
     (match t1, t2 with
-    (* Cases between a (session) type variable and a type are 
-       the important ones, everything else just tries to 
-       decompose complex types. *)
+    (* TODO: Make this case resemble the artificial decomposition case. *)
     | (Session STypeVar v, Session ty) | (Session ty, Session STypeVar v) -> 
       (* Is there any chance this could crash due to infinite recursion? A fix
          would be to do the occurs check first. *)
@@ -519,6 +520,7 @@ let rec unifyEqualities (constraints : TypC.elt list) : livSubst list =
         else (v, typ) :: unifyEqualities substituted 
       | _ -> (v, typ) :: unifyEqualities substituted
       )
+      
     (* Complex type decomposition *)
     | (Arrow (t1, t2), Arrow (l1, l2))
     | (LinearArrow (t1, t2), LinearArrow (l1, l2)) ->
