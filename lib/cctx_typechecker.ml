@@ -467,7 +467,8 @@ let rec checkUnrestr (constrTyp : typ) : bool =
   | Unit -> true
   | Arrow (t1, t2) -> checkUnrestr t1 && checkUnrestr t2
   | LinearArrow (t1, t2) -> (not @@ checkUnrestr t1) && checkUnrestr t2
-  | TypeVar _ -> false
+  | TypeVar _ -> false (* This might need to be repurposed to a 
+                          third logical value representing 'uncertainty'. *)
   | Product (t1, t2) -> checkUnrestr t1 && checkUnrestr t2 
   | Sum (t1, t2) -> checkUnrestr t1 && checkUnrestr t2 
   | Session _ -> false
@@ -476,6 +477,7 @@ let rec checkUnrestr (constrTyp : typ) : bool =
 let linearityCheck (constraintSubjects : typ list) : typ list =
   List.filter checkUnrestr constraintSubjects
 
+(* YOU SHOULD NOT DECOMPOSE DEPTH-FIRST. DO IT STEPWISE. *)
 let rec decomposeSessionEquality ((s1, s2) : sessTyp * sessTyp) 
                                  : TypC.elt list =
   match (s1, s2) with
@@ -502,15 +504,12 @@ let rec unifyEqualities (constraints : TypC.elt list) : livSubst list =
     (match t1, t2 with
     (* TODO: Make this case resemble the artificial decomposition case. *)
     | (Session STypeVar v, Session ty) | (Session ty, Session STypeVar v) -> 
-      (* Is there any chance this could crash due to infinite recursion? A fix
-         would be to do the occurs check first. *)
       let substituted = substConstraints (v, Session ty) rest in
       if occursCheckSess (Session (STypeVar v)) ty then
         let () = Format.printf "v: %a@;ty: %a@;" Format.pp_print_string v pp_sessTyp ty in
         raise _UNIFICATION_OCCURS_CHECK_FAILURE
       else 
-        (v, Session ty) :: unifyEqualities substituted
-    | (TypeVar v, typ) | (typ, TypeVar v) ->
+        (v, Session ty) :: unifyEqualities     | (TypeVar v, typ) | (typ, TypeVar v) ->
       let substituted = substConstraints (v, typ) rest in
       (match typ with 
       | LinearArrow (t1,t2) | Arrow (t1,t2) -> 
