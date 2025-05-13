@@ -10,6 +10,7 @@
 
 (* Parentheses *)
 %token LPAREN RPAREN
+%token LBRACE RBRACE
 
 (* Type construction grammar *)
 %token TYINT TYBOOL UNIT
@@ -35,6 +36,8 @@
 (* Session typing constructions *)
 %token SEND RECEIVE
 %token FORK WAIT
+%token OFFER SELECT
+%token TILDE
 
 (* Arithmetic and relational binary_operations, 
    as well as PLUS and STAR for types. 
@@ -52,7 +55,7 @@
 %type <binOp> operator
 %type <typ> ty base_ty
 %type <sessTyp> sess_ty
-%type <sessTyp list> nary_sess_ty
+%type <(string * typ) list> sess_ty_cont
 
 (* Start parsing *)
 %start <term> expr_main
@@ -100,17 +103,31 @@ expr:
   | RECEIVE e = expr { TReceive e }
   | FORK e = expr { TFork e }
   | WAIT e = expr { TWait e }
+  | OFFER o = expr LBRACE l1 = VARIABLE LPAREN s1 = VARIABLE RPAREN ARROW 
+                            e1 = expr COMMA
+                          l2 = VARIABLE LPAREN s2 = VARIABLE RPAREN ARROW 
+                            e2 = expr cont = offer_cont
+    { let combinedList = ((l1, s1, e1) :: (l2, s2, e2) :: cont) in
+      TOffer (o, combinedList) }
+  | SELECT l = VARIABLE e = expr { TSelect (l, e) }
+
+(* Offer continuation that either produces `}` to end a 2-element offer,
+   or produces an n+1 element offer with another continuation call. *)
+offer_cont:
+  | RBRACE { [] }
+  | COMMA l3 = VARIABLE LPAREN v3 = VARIABLE RPAREN 
+      ARROW e3 = expr cont = offer_cont { (l3, v3, e3) :: cont } 
 
 operator: 
-  | LANGLE { Lt } | LE { Le } 
-  | RANGLE { Gt } | GE { Ge } 
-  | EQ { Eq }     | NEQ { Neq } 
-  | PLUS { Plus } | MINUS { Minus } 
+  | LANGLE { Lt } | LE     { Le } 
+  | RANGLE { Gt } | GE     { Ge } 
+  | EQ     { Eq } | NEQ    { Neq } 
+  | PLUS { Plus } | MINUS  { Minus } 
   | STAR { Mult } | FSLASH { Div }
 
 binary_operation:
   | e1 = binary_operation 
-    o = operator 
+    o  = operator 
     e2 = binary_operation { TBinOp (o, e1, e2) }
   | f = fact { f }
 
@@ -130,20 +147,26 @@ ty:
   | t1 = ty LOLLI t2 = ty { LinearArrow (t1, t2) }
   | t1 = ty PLUS t2 = ty { Sum (t1, t2) }
   | t1 = ty STAR t2 = ty { Product (t1, t2) }
+  | TILDE t = ty { Dual t }
   | t = base_ty { t }
 
-nary_sess_ty:
-  | s1 = sess_ty COMMA s2 = nary_sess_ty { s1 :: s2 }
-  | s = sess_ty { s :: [] }
-				  
 sess_ty:
   | ENDBANG { SendEnd }
   | ENDQUERY { ReceiveEnd }
-  | BANG t1 = ty DOT t2 = sess_ty { Send (t1, t2) }
-  | QSTNMARK t1 = ty DOT t2 = sess_ty { Receive (t1, t2) }
-  | LPAREN PLUS RPAREN t = nary_sess_ty { SendChoice t }
-  | LPAREN AMPERSAND RPAREN t = nary_sess_ty { ReceiveChoice t }
+  | BANG t1 = ty DOT t2 = ty { Send (t1, t2) }
+  | QSTNMARK t1 = ty DOT t2 = ty { Receive (t1, t2) }
+  | LPAREN PLUS RPAREN LBRACE l1 = VARIABLE COLON t1 = sess_ty 
+    cont = sess_ty_cont
+    { SendChoice ((l1, Session t1) :: cont) }
+  | LPAREN AMPERSAND RPAREN LBRACE l1 = VARIABLE COLON t1 = sess_ty 
+    cont = sess_ty_cont
+    { OfferChoice ((l1, Session t1) :: cont) }
 
+sess_ty_cont:
+  | RBRACE { [] }
+  | COMMA l2 = VARIABLE COLON t2 = sess_ty cont = sess_ty_cont 
+    { (l2, Session t2) :: cont }
+				  
 base_ty:
   | TYINT  { Base Integer }
   | TYBOOL { Base Boolean }

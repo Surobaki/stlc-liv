@@ -40,6 +40,8 @@ rule tokenise = parse
   | "receive" { RECEIVE }
   | "endbang" { ENDBANG }
   | "endquery" { ENDQUERY }
+  | "offer" { OFFER }
+  | "select" { SELECT }
   | "Int" { TYINT }
   | "Bool" { TYBOOL }
   | "Unit" { UNIT }
@@ -67,6 +69,8 @@ rule tokenise = parse
   | '>' { RANGLE }
   | '(' { LPAREN }
   | ')' { RPAREN }
+  | '{' { LBRACE }
+  | '}' { RBRACE }
   | '\\' { LAMBDA }
   | '=' { EQUALS }
   | ';' { SEMICOLON }
@@ -75,6 +79,7 @@ rule tokenise = parse
   | '!' { BANG }
   | '?' { QSTNMARK }
   | '&' { AMPERSAND }
+  | '~' { TILDE }
   | eof { EOF }
   (* Variables and integer literals *)
   | def_id as var { VARIABLE var }

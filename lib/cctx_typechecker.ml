@@ -38,8 +38,8 @@ let _UNIFICATION_UNEXPECTED_DECOMPOSITION = Errors.Type_error
 
 (* *)
 (* Types related to type checking. *)
-type cctxOut = typ * typ TypR.t * TypC.t
 type typCtx = typ TypR.t
+type cctxOut = typ * typCtx * TypC.t
 type mergeFunction = typCtx -> typCtx -> typCtx * TypC.t
 type checkFunction = binder -> typCtx -> typ * TypC.t
 type tcOut = typ * TypC.t
@@ -47,12 +47,17 @@ type tcOut = typ * TypC.t
 (* *)
 (* Type presets for easy input. *)
 type linearityBase = B_Linear | B_Mixed | B_Unrestricted
+type mergeType = M_Sequential | M_Branching
     
 (* *)
 (* Auxiliary functions. *)
 let queryBind (binder : TypR.key) (reqSet : typCtx) = 
   TypR.find binder reqSet
 let ( #< ) reqSet binder = queryBind binder reqSet
+    
+let queryBindOpt (binder : TypR.key) (reqSet : typCtx) = 
+  TypR.find_opt binder reqSet
+let ( #<? ) reqSet binder = queryBindOpt binder reqSet
 
 let removeBind (binder : TypR.key) (reqSet : typCtx) = 
   TypR.remove binder reqSet
@@ -70,6 +75,20 @@ let unwrapSesh (st : typ) : sessTyp option =
   match st with 
   | Session s -> Some s 
   | _ -> None
+    
+let optionAnd (bo1 : bool option) (bo2 : bool option) : bool option =
+  match (bo1, bo2) with
+  | Some b1, Some b2 -> Some (b1 && b2)
+  | _ -> None
+    
+let ( &&? ) b1 b2 = optionAnd b1 b2
+
+let optionNot (bo : bool option) : bool option =
+  match bo with
+  | Some b -> Some (not b)
+  | None -> None
+
+let ( !? ) b = optionNot b
 
 let linSeqMerge (req1 : typCtx) 
                 (req2 : typCtx) : typCtx * TypC.t =
@@ -175,6 +194,29 @@ let mixBrMerge (req1 : typCtx)
       else acc)
     TypC.empty malformedMerge in
     (fixedUpMerge, extraConstraints)
+ 
+let rec merge (m : mergeType) (l : linearityBase) (inp : typCtx list)
+    : typCtx * TypC.t =
+  let mergeFun = 
+    match m with 
+    | M_Sequential -> 
+      (match l with 
+      | B_Linear -> linSeqMerge
+      | B_Mixed -> mixSeqMerge
+      | B_Unrestricted -> unrMerge)
+    | M_Branching -> 
+      (match l with 
+      | B_Linear -> linBrMerge 
+      | B_Mixed -> mixBrMerge 
+      | B_Unrestricted -> unrMerge) in
+  match inp with
+  | [] -> (TypR.empty, (%.))
+  | inp :: [] -> (inp, (%.))
+  | inp1 :: inp2 :: inpTail ->
+    let (req12, cst12) = mergeFun inp1 inp2 in
+    let (req12t, cst12t) = merge m l (req12 :: inpTail) in
+    let outCst = cst12 %+ cst12t in
+    (req12t, outCst)
 
 let genUnrestricted (ctx : typCtx) : TypC.t =
   TypC.of_list (List.map (fun (_, typ) -> Unrestricted typ) (TypR.to_list ctx))
@@ -195,13 +237,36 @@ let unrCheck (bind : binder) (ctx : typCtx)
   if TypR.mem bind ctx then (TypR.find bind ctx, (%.))
                        else let freshType = TypeVar (TyVar.fresh ()) in
                             (freshType, (%.))
+                            
+let nCheck (l : linearityBase) (binds : binder list) (ctxs : typCtx list) 
+           : typ list * TypC.t =
+  let combined = List.combine binds ctxs in
+  let checkFn (l : linearityBase) = match l with 
+                                    | B_Linear -> linCheck 
+                                    | B_Mixed -> mixCheck 
+                                    | B_Unrestricted -> unrCheck in
+  let typsAndCsts = List.fold_right (fun (bind, ctx) acc -> 
+                                      (checkFn l bind ctx) :: acc) 
+                                    combined [] in
+  let outTyps = List.map (fun (t, _) -> t) typsAndCsts in
+  let outCst = List.fold_right (fun (_, c) acc -> TypC.union c acc) 
+               typsAndCsts (%.) in
+  (outTyps, outCst)
+  
+let rec allEq (typs : typ list) : TypC.t =
+  match typs with
+  | t1 :: t2 :: ts -> TypC.union ((%*) @@ Equal (t1, t2)) (allEq ts)
+  | _ -> (%.)
 
 (* *)
 (* Typechecking section *)
-let rec ccTc (mergeBranch : mergeFunction) (mergeSequence : mergeFunction) 
-             (checkVariable : checkFunction) (tm : term) 
+let rec ccTc (l : linearityBase) (tm : term) 
              : cctxOut =
-  let typeCheck = ccTc mergeBranch mergeSequence checkVariable in
+  let typeCheck = ccTc l in
+  let (mergeBranch, mergeSequence, checkVariable) = match l with 
+                    | B_Linear -> (linBrMerge, linSeqMerge, linCheck) 
+                    | B_Mixed -> (mixBrMerge, mixSeqMerge, mixCheck) 
+                    | B_Unrestricted -> (unrMerge, unrMerge, unrCheck) in
   match tm with
   | TConstant (CInteger _) -> 
       (Base Integer, TypR.empty, TypC.empty)
@@ -331,20 +396,36 @@ let rec ccTc (mergeBranch : mergeFunction) (mergeSequence : mergeFunction)
     let (tm1Typ, tm1Req, tm1Cst) = typeCheck tm1 in
     let (tm2Typ, tm2Req, tm2Cst) = typeCheck tm2 in
     let (mergeReq, mergeCst) = mergeSequence tm1Req tm2Req in
-    let freshSesh = STypeVar (STyVar.fresh ()) in
-    let receivedSesh = Session freshSesh in
+    let freshSesh = TypeVar (TyVar.fresh ()) in
     let fixedCst = (%*) (Equal (tm2Typ, (Session (Send (tm1Typ, freshSesh))))) in
     let outCst = tm1Cst %+ tm2Cst %+ mergeCst %+ fixedCst in
-    (receivedSesh, mergeReq, outCst)
+    (freshSesh, mergeReq, outCst)
   | TReceive tm ->
     let (tmTyp, tmReq, tmCst) = typeCheck tm in
     let receivedFresh = TypeVar (TyVar.fresh ()) in
-    let freshSesh = STypeVar (STyVar.fresh ()) in
-    let receivedSesh = Session freshSesh in
+    let freshSesh = TypeVar (TyVar.fresh ()) in
     let fixedCst = (%*) 
-                   (Equal (tmTyp, Session (Receive (receivedFresh, freshSesh)))) in
+                   (Equal (tmTyp, 
+                           Session (Receive (receivedFresh, freshSesh)))) in
     let outCst = tmCst %+ fixedCst in
-    (Product (receivedFresh, receivedSesh), tmReq, outCst)
+    (Product (receivedFresh, freshSesh), tmReq, outCst)
+  | TOffer (coreTm, offerList) ->
+    let brNMerge = merge M_Branching l in
+    let (labels, contBinders, tmContinuations) = partition3 offerList in
+    let (tmTyp, tmReq, tmCst) = typeCheck coreTm in
+    let (tmTyps, tmReqs, tmCstsList) = partition3 @@ List.map typeCheck 
+                                                          tmContinuations in
+    let tmCsts = TypC.union_many tmCstsList in
+    let (checkTyps, checkCst) = nCheck l contBinders tmReqs in
+    let (brReq, brCst) = brNMerge @@ List.map (fun (sess, req) -> req /< sess) 
+                                     (List.combine contBinders tmReqs) in 
+    let (outReq, seqCst) = mergeSequence tmReq brReq in
+    let outCst = seqCst %+ tmCst %+ brCst %+ checkCst %+ tmCsts 
+                 %+ (allEq tmTyps) 
+                 %+ (%*) (Equal (tmTyp, Session (SendChoice (List.combine labels checkTyps)))) in
+    let outTyp = List.nth tmTyps 0 in
+    (outTyp, outReq, outCst)
+  | TSelect (_, _) -> raise (Errors.Type_error "Olivia did not implement this yet")
   | TFork tm ->
     let (tmTyp, tmReq, tmCst) = typeCheck tm in
     let receivedSesh = TypeVar (TyVar.fresh ()) in
@@ -399,16 +480,18 @@ and occursCheckSess (t : typ) (checkSubject : sessTyp) : bool =
   match t with
   | TypeVar _ ->
     (match checkSubject with
-    | Send (head, cont) | Receive (head, cont) -> head = t 
+    | Send (head, Session cont) | Receive (head, Session cont) -> head = t 
                                                   || occursCheckSess t cont
-    | SendChoice s | ReceiveChoice s -> List.exists (occursCheckSess t) s
-    | _ -> false)
-  | Session STypeVar sId ->
-    (match checkSubject with
-    | Send (_, cont) | Receive (_, cont) -> cont = STypeVar sId
-    | SendChoice s | ReceiveChoice s -> List.exists ((=) (STypeVar sId)) s 
+    | SendChoice s | OfferChoice s -> 
+      List.exists (occursCheck t) (List.map (fun (_, el) -> el) s)
     | _ -> false)
   | _ -> false
+    
+let recoverSession (t : typ) : sessTyp = 
+  match t with 
+  | Session s -> s 
+  | _ -> raise (Errors.Type_error {|Found a non-session type in a 
+                                    selection type branch.|})
 
 let rec applySubst (substitution : livSubst) (examined : typ) : typ =
   let applyRec = applySubst substitution in
@@ -423,26 +506,30 @@ let rec applySubst (substitution : livSubst) (examined : typ) : typ =
   | LinearArrow (t1, t2) -> LinearArrow (applyRec t1, applyRec t2)
   | Session s -> Session (applySubstSession substitution s)
   | Dual t -> Dual (applyRec t)
-and applySubstSession (substitution : livSubst) (examined : sessTyp) : sessTyp = 
-  let (search, subst) = substitution in
+and applySubstSession (substitution : livSubst) (examined : sessTyp) 
+                      : sessTyp = 
   match examined with
-  | STypeVar vId -> (match (unwrapSesh subst) with
-                    | Some s -> if search = vId then s else examined
-                    | None -> STypeVar vId)
-  | Send (t, s) -> Send (applySubst substitution t, 
-                         applySubstSession substitution s)
-  | Receive (t, s) -> Receive (applySubst substitution t, 
-                               applySubstSession substitution s)
-  | SendChoice ss -> SendChoice 
-                     (List.fold_right 
-                       (fun el acc -> 
-                         applySubstSession substitution el :: acc) 
-                       ss [])
-  | ReceiveChoice ss -> ReceiveChoice
-                     (List.fold_right 
-                       (fun el acc -> 
-                         applySubstSession substitution el :: acc) 
-                       ss [])
+  | Send (t, Session s) -> Send (applySubst substitution t, 
+                         Session (applySubstSession substitution s))
+  | Receive (t, Session s) -> Receive (applySubst substitution t, 
+                               Session (applySubstSession substitution s))
+  | Send (_, _) | Receive (_, _) -> 
+      raise (Errors.Type_error {|The session continuation when substituting 
+                                 does not appear to be a session type.|})
+  | SendChoice ss -> 
+    SendChoice 
+      (List.fold_right
+         (fun (vName, typ) acc -> 
+            let sess = recoverSession typ in
+            (vName, Session (applySubstSession substitution sess)) :: acc) 
+         ss [])
+  | OfferChoice ss ->
+    OfferChoice 
+      (List.fold_right
+         (fun (vName, typ) acc -> 
+            let sess = recoverSession typ in
+            (vName, Session (applySubstSession substitution sess)) :: acc) 
+         ss [])
   | SendEnd -> SendEnd
   | ReceiveEnd -> ReceiveEnd
 
@@ -461,76 +548,93 @@ let closeSubsts (substitutions : livSubst list) (examined : typ) : typ =
   (fun subject substitution -> applySubst substitution subject) 
   examined substitutions 
                  
-let rec checkUnrestr (constrTyp : typ) : bool =
+let rec isUnrestr (constrTyp : typ) : bool option =
   match constrTyp with
-  | Base _ -> true
-  | Unit -> true
-  | Arrow (t1, t2) -> checkUnrestr t1 && checkUnrestr t2
-  | LinearArrow (t1, t2) -> (not @@ checkUnrestr t1) && checkUnrestr t2
-  | TypeVar _ -> false (* This might need to be repurposed to a 
-                          third logical value representing 'uncertainty'. *)
-  | Product (t1, t2) -> checkUnrestr t1 && checkUnrestr t2 
-  | Sum (t1, t2) -> checkUnrestr t1 && checkUnrestr t2 
-  | Session _ -> false
-  | Dual _ -> false
+  | TypeVar _ -> None
+  | Base _ -> Some true
+  | Unit -> Some true
+  | Arrow (t1, t2) -> isUnrestr t1 &&? isUnrestr t2
+  | LinearArrow (t1, t2) -> (!? (isUnrestr t1)) &&? isUnrestr t2
+  | Product (t1, t2) -> isUnrestr t1 &&? isUnrestr t2 
+  | Sum (t1, t2) -> isUnrestr t1 &&? isUnrestr t2 
+  | Session _ -> Some false
+  | Dual _ -> Some false
+                
+let isUnrestrWeak (constrTyp : typ) : bool =
+  match isUnrestr constrTyp with
+  | Some b -> b
+  | None -> false
 
 let linearityCheck (constraintSubjects : typ list) : typ list =
-  List.filter checkUnrestr constraintSubjects
+  List.filter isUnrestrWeak constraintSubjects
+    
+let rec isClosed (t : typ) : bool =
+  match t with
+  | TypeVar _ -> false
+  | Session s -> isClosedSess s
+  | _ -> true
+and isClosedSess (s : sessTyp) : bool = 
+  match s with
+  | Send (t1, t2) | Receive (t1, t2) -> 
+    (match t2 with
+    | Session s2 -> isClosed t1 && isClosedSess s2
+    | _ -> 
+      raise (Errors.Type_error {|Cannot determine continuation of session
+                                 to be session-typed.|}))
+  | SendChoice ss | OfferChoice ss ->
+      List.for_all isClosedSess (List.map (fun (_, t) -> recoverSession t) ss)
+  | SendEnd | ReceiveEnd -> true
 
-(* YOU SHOULD NOT DECOMPOSE DEPTH-FIRST. DO IT STEPWISE. *)
-let rec decomposeSessionEquality ((s1, s2) : sessTyp * sessTyp) 
-                                 : TypC.elt list =
-  match (s1, s2) with
-  | (Send (h1, cont1), Send (h2, cont2)) 
-  | (Receive (h1, cont1), Receive (h2, cont2)) -> 
-      (Equal (h1, h2)) :: decomposeSessionEquality (cont1, cont2)
-  | (STypeVar sId, s) | (s, STypeVar sId) -> 
-      Equal (Session (STypeVar sId), Session s) :: []
-  | (SendChoice ss1, SendChoice ss2) | (ReceiveChoice ss1, ReceiveChoice ss2) ->
-    if List.length ss1 = List.length ss2 then
-      List.fold_right (fun el acc -> decomposeSessionEquality el @ acc) 
-        (List.combine ss1 ss2) []
-    else raise _UNIFICATION_CHOICE_ARITY_MISMATCH
-  | (s1, s2) -> if s1 = s2 then [] 
-                else raise _UNIFICATION_UNEXPECTED_DECOMPOSITION
-
-let rec unifyEqualities (constraints : TypC.elt list) : livSubst list =
-  match constraints with
+let rec unifyEqualities (constraintList : TypC.elt list) 
+                                 : livSubst list =
+  match constraintList with
   | [] -> []
-  | (Unrestricted _) :: _ -> 
-    raise _UNIFICATION_ERROR_UNRESTR_TYPEVAR
-  
-  | (Equal (t1, t2)) :: rest ->
-    (match t1, t2 with
-    (* TODO: Make this case resemble the artificial decomposition case. *)
-    | (Session STypeVar v, Session ty) | (Session ty, Session STypeVar v) -> 
-      let substituted = substConstraints (v, Session ty) rest in
-      if occursCheckSess (Session (STypeVar v)) ty then
-        let () = Format.printf "v: %a@;ty: %a@;" Format.pp_print_string v pp_sessTyp ty in
-        raise _UNIFICATION_OCCURS_CHECK_FAILURE
-      else 
-        (v, Session ty) :: unifyEqualities     | (TypeVar v, typ) | (typ, TypeVar v) ->
-      let substituted = substConstraints (v, typ) rest in
-      (match typ with 
-      | LinearArrow (t1,t2) | Arrow (t1,t2) -> 
-        if occursCheck (TypeVar v) typ then 
-        let () = Format.printf "t1: %a@;t2: %a AND %a@;" Format.pp_print_string v pp_typ t1 pp_typ t2 in
-          raise _UNIFICATION_OCCURS_CHECK_FAILURE
-        else (v, typ) :: unifyEqualities substituted 
-      | _ -> (v, typ) :: unifyEqualities substituted
-      )
+  | cst :: tail -> (
+    match cst with
+    | Equal (t1, t2) -> (
+      if t1 = t2 then unifyEqualities tail else
+      (match (t1, t2) with 
+      | Product (t1, p1), Product (t2, p2) | Sum (t1, p1), Sum (t2, p2)
+      | Arrow (t1, p1), Arrow (t2, p2) 
+      | LinearArrow (t1, p1), LinearArrow (t2, p2) -> 
+        unifyEqualities @@ Equal (t1, t2) :: Equal (p1, p2) :: tail
       
-    (* Complex type decomposition *)
-    | (Arrow (t1, t2), Arrow (l1, l2))
-    | (LinearArrow (t1, t2), LinearArrow (l1, l2)) ->
-        unifyEqualities (Equal (t1, l1) :: Equal (t2, l2) :: rest)
-    | (Session s1, Session s2) ->
-        unifyEqualities ((decomposeSessionEquality (s1, s2)) @ rest)
-    | (Product (t1, t2), Product (l1, l2)) -> 
-        unifyEqualities (Equal (t1, l1) :: Equal (t2, l2) :: rest)
-    | (t1, t2) -> if t1 = t2 then unifyEqualities rest
-                  else raise _UNIFICATION_ERROR_INCOMPAT_BASE
-    )
+      | Base t1, Base t2 -> 
+        if t1 = t2 then unifyEqualities tail
+        else raise (Errors.Type_error {|Base type mismatch.|}) (* Redundant *)
+             
+      | TypeVar tvId, t | t, TypeVar tvId ->
+        let tv = TypeVar tvId in
+        if occursCheck tv t then raise (Errors.Type_error "Occurs check failed")
+        else let subst = (tvId, t) in
+        let newCsts = substConstraints subst tail in
+        subst :: unifyEqualities newCsts
+          
+      | Session s1, Session s2 ->
+        (match (s1, s2) with
+        | Send (headTyp1, contTyp1), Send (headTyp2, contTyp2)
+        | Receive (headTyp1, contTyp1), Receive (headTyp2, contTyp2) ->
+          unifyEqualities (Equal (headTyp1, headTyp2) 
+                          :: Equal (contTyp1, contTyp2) :: tail)
+        | SendEnd, SendEnd | ReceiveEnd, ReceiveEnd -> unifyEqualities tail
+        | OfferChoice _, OfferChoice _ | SendChoice _, SendChoice _ ->
+          raise (Errors.Type_error {|Branching choice unification has not been 
+                                   implemented yet due to subtyping concerns.|})
+        | _ -> raise (Errors.Type_error "Can't unify a session case. What's going on?")
+        )
+
+       
+      | _ -> raise (Errors.Type_error "Can't unify a case. What's going on?")
+        )
+      )
+    | Unrestricted t -> (
+        match (isUnrestr t) with
+        | Some true -> unifyEqualities tail
+        | Some false -> raise 
+                     (Errors.Type_error {|Semantic unrestriction check failed|})
+        | None -> unifyEqualities tail
+      )
+   )
 
 let reverseOrderUnrestricted (substitution : typConstraint) : bool =
   match substitution with
@@ -557,18 +661,13 @@ let resolveConstraints (constraints : TypC.t) : livSubst list =
   if (linearityCheck substituted) = substituted then unified
   else raise _UNIFICATION_ERROR_OTHER
 
-let checkResolve 
-  (mergeBranch : mergeFunction) (mergeSequence : mergeFunction) 
-  (checkVariable : checkFunction) (tm : term) 
+let checkResolve (l : linearityBase) (tm : term) 
   : cctxOut * (livSubst list) =
-  let (_, _, cst) as out = ccTc mergeBranch mergeSequence checkVariable tm in  
+  let (_, _, cst) as out = ccTc l tm in  
   (out, resolveConstraints cst)
 
-let bobTypecheck 
-  (mergeBranch : mergeFunction) (mergeSequence : mergeFunction) 
-  (checkVariable : checkFunction) (tm : term) : tcOut =
-  let ((typ, _, cst), subst) = 
-    checkResolve mergeBranch mergeSequence checkVariable tm in
+let bobTypecheck (l : linearityBase) (tm : term) : tcOut =
+  let ((typ, _, cst), subst) = checkResolve l tm in
   (closeSubsts subst typ, cst)
 
 (* Utility function for pretty-printing type checker output *)
@@ -577,11 +676,4 @@ let pp_tcOut ?(verbose=false) (out : Format.formatter) ((t,c) : tcOut) =
   then Format.fprintf out "@[<hov>Term type:@ <%a>@;Under constraints:@ {%a}@]@."
                           pp_typ t pp_TypC c
   else Format.fprintf out "@[<hov>Term type:@ <%a>@]@." pp_typ t
-
-(* Type checking function with linearity presets. *)
-let typecheck (lb : linearityBase) (tm : term) : tcOut =
-  match lb with
-  | B_Linear -> bobTypecheck linBrMerge linSeqMerge linCheck tm
-  | B_Mixed -> bobTypecheck mixBrMerge mixSeqMerge mixCheck tm
-  | B_Unrestricted -> bobTypecheck unrMerge unrMerge unrCheck tm
 

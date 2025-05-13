@@ -1,3 +1,0 @@
-let x = (\i:Int.(i + 5)) in
-let y = 3 in
-\c:Bool.(if c then (x y) else (y - 1))

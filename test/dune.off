@@ -1,0 +1,6 @@
+(test
+  (name Typetest)
+  (libraries CoreLang)
+  (modules Typetest Parsetest)
+  (preprocess (pps ppx_expect ppx_assert))
+)

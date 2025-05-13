@@ -1,0 +1,2 @@
+(\goober:Int+Bool . match goober with (i -> true, b -> false))
+(goober 5, goober true)

@@ -13,19 +13,9 @@ module TyVar = struct
   let pp = Format.pp_print_string
 end
 
-module STyVar = struct
-  type t = string
-  let source = ref 0
-
-  let reset () = source := 0
-
-  let fresh ?(prefix="_S") () =
-    let sym = !source in
-    let () = incr source in
-    prefix ^ (string_of_int sym)
-
-  let pp = Format.pp_print_string
-end
+(* Binders *)
+type binder = string
+type label = string
 
 (* Base types *)
 type baseType = Integer | Boolean
@@ -41,11 +31,10 @@ type typ = TypeVar of TyVar.t
          | Session of sessTyp
          | Dual of typ
 (* Session types *)
-and sessTyp = STypeVar of STyVar.t
-            | Send of typ * sessTyp
-            | Receive of typ * sessTyp
-            | SendChoice of sessTyp list
-            | ReceiveChoice of sessTyp list
+and sessTyp = Send of typ * typ
+            | Receive of typ * typ
+            | SendChoice of (label * typ) list
+            | OfferChoice of (label * typ) list
             | SendEnd
             | ReceiveEnd
 
@@ -59,9 +48,6 @@ type constTerm = CInteger of int
 
 (* Variable names, might be useless *)
 type varName = string
-
-(* Binders *)
-type binder = string
 
 (* Terms *)
 type term = 
@@ -90,6 +76,10 @@ type term =
   | TReceive of term
   | TFork of term
   | TWait of term
+  | TOffer of term * (label * binder * term) list
+           (* offer M in {l_i(x_i) |-> N_i} *)
+  | TSelect of label * term
+            (* select l in M *)
 
 (* Typing environment *)
 type typeEnv = (varName * typ) list 
@@ -106,7 +96,7 @@ type typConstraint = Unrestricted of typ
                    | Equal of typ * typ
 
 (* Sets of constraints *)
-module TypC = Set.Make (struct
+module TypCSet = Set.Make (struct
     type t = typConstraint
     let compare e1 e2 = match e1, e2 with
       | Unrestricted e1, Unrestricted e2
@@ -116,12 +106,29 @@ module TypC = Set.Make (struct
                                              then Stdlib.compare e12 e22
                                              else Stdlib.compare e11 e21
   end)
+ 
+module TypC = struct 
+  include TypCSet
+  let union_many = List.fold_left (union) empty
+end
 
 (* Typing environments *)
 module TypR = Map.Make (struct
     type t = binder
     let compare e1 e2 = String.compare e1 e2
   end)
+    
+(* Auxiliary Functions *)
+let partition2 (_input : ('a * 'b) list) : ('a list) * ('b list) =
+  List.fold_right
+  (fun (e1, e2) (acc1, acc2) -> (e1 :: acc1, e2 :: acc2))
+  _input ([], [])
+
+let partition3 (_input : ('a * 'b * 'c) list) 
+               : ('a list) * ('b list) * ('c list) =
+  List.fold_right 
+  (fun (e1, e2, e3) (acc1, acc2, acc3) -> (e1 :: acc1, e2 :: acc2, e3 :: acc3))
+  _input ([], [], [])
 
 (* Pretty printing *)
 let pp_baseType (out : Format.formatter) (b : baseType) =
@@ -148,19 +155,26 @@ let rec pp_typ (out : Format.formatter) (t : typ) =
   | Unit -> Format.print_string "()"
 and pp_sessTyp (out : Format.formatter) (s : sessTyp) =
   match s with 
-  | STypeVar s -> Format.print_string s
   | Send (t, s') -> Format.fprintf out "@[<hov>!%a.%a@]"
-                      pp_typ t pp_sessTyp s' 
+                      pp_typ t pp_typ s' 
   | Receive (t, s') -> Format.fprintf out "@[<hov>?%a.%a@]"
-                         pp_typ t pp_sessTyp s' 
-  | SendChoice ss -> Format.fprintf out "@[<hov>⊕〈%a〉@]"
-                       (Format.pp_print_list
-                          ~pp_sep:(fun ppf () -> Format.fprintf ppf ",@ ")
-                          pp_sessTyp) ss
-  | ReceiveChoice ss -> Format.fprintf out "@[<hov>&〈%a〉@]"
-                          (Format.pp_print_list
-                             ~pp_sep:(fun ppf () -> Format.fprintf ppf ",@ ")
-                             pp_sessTyp) ss
+                         pp_typ t pp_typ s' 
+  | SendChoice ss -> let (labels, typs) = partition2 ss in
+    Format.fprintf out "@[<hov>&〈{%a : %a}〉@]"
+      (Format.pp_print_list
+        ~pp_sep:(fun ppf () -> Format.fprintf ppf ",@ ")
+        pp_typ) typs
+      (Format.pp_print_list
+        ~pp_sep:(fun ppf () -> Format.fprintf ppf ",@ ")
+        Format.pp_print_string) labels
+  | OfferChoice ss -> let (labels, typs) = partition2 ss in
+    Format.fprintf out "@[<hov>⊕〈{%a : %a}〉@]"
+      (Format.pp_print_list
+        ~pp_sep:(fun ppf () -> Format.fprintf ppf ",@ ")
+        pp_typ) typs
+      (Format.pp_print_list
+        ~pp_sep:(fun ppf () -> Format.fprintf ppf ",@ ")
+        Format.pp_print_string) labels
   | SendEnd -> Format.print_string "end!"
   | ReceiveEnd -> Format.print_string "end?"
 
@@ -264,6 +278,12 @@ let rec pp_term (out : Format.formatter) (t : term) =
       pp_term tmSubj
       pp_term tmSesh
   | TReceive tm -> Format.fprintf out "@[<hov>RECE@ %a@]" pp_term tm
+  | TOffer (sessTm, tripleList) ->
+      pp_offer out sessTm tripleList
+  | TSelect (bind, tm) ->
+      Format.fprintf out "@[<hov>SELECT@ %a@ FROM@ %a@]"
+      Format.pp_print_string bind
+      pp_term tm
   | TFork tm -> Format.fprintf out "@[<hov>FORK@ %a@]" pp_term tm
   | TWait tm -> Format.fprintf out "@[<hov>WAIT@ %a@]" pp_term tm
   | TBinOp (op, tm1, tm2) -> 
@@ -271,6 +291,33 @@ let rec pp_term (out : Format.formatter) (t : term) =
       pp_term tm1
       pp_binOp op
       pp_term tm2
+      
+and pp_case_elem (out : Format.formatter) ((key, value) : string * term) =
+  Format.fprintf out "@[<hov>%a@ ↦@ %a@]"
+  Format.pp_print_string key
+  pp_term value
+  
+and pp_case_continuation_elem (out : Format.formatter)
+                              ((label, cont, tm) : label * binder * term) =
+  Format.fprintf out "@[<hov>%a@ (%a)@ ↦@ %a]"
+  Format.pp_print_string label
+  Format.pp_print_string cont
+  pp_term tm
+
+and pp_case (out : Format.formatter) (keyvalues : (binder * term) list) =
+  Format.pp_print_list ~pp_sep:(fun ppf () -> Format.fprintf ppf ", ")
+  pp_case_elem out keyvalues
+
+and pp_case_continuation (out : Format.formatter)
+                         (triples : (label * binder * term) list) =
+  Format.pp_print_list ~pp_sep:(fun ppf () -> Format.fprintf ppf ", ")
+    pp_case_continuation_elem out triples
+
+and pp_offer (out : Format.formatter) (sess : term) 
+             (triples : (label * binder * term) list) =
+  Format.fprintf out "@[<hov>OFFER@ %a@ {%a}@]"
+  pp_term sess
+  pp_case_continuation triples
 
 let pp_typeEnvSingleton (out : Format.formatter) ((b, t) : binder * typ) =
   Format.fprintf out "@[<hov>RENV(%a,@ %a)@]" 

@@ -30,9 +30,9 @@ let args_specification =
 (* Rudimentary data validation *)
 let secure_base (b : string) : linearityBase =
   match b with
-  | "lin" | "linear" -> B_Linear
-  | "mix" | "mixed" -> B_Mixed
-  | "unr" | "unrestricted" -> B_Unrestricted
+  | "l" | "lin" | "linear" -> B_Linear
+  | "m" | "mix" | "mixed" -> B_Mixed
+  | "u" | "unr" | "unrestricted" -> B_Unrestricted
   | _ -> raise _ERR_UNREC_BASE
 
 let secure_filepath (p : string) : string =
@@ -68,9 +68,9 @@ let typecheck_wrapper { lin_base = lb; verbosity = v;
                         out_file = o; in_files = i } : unit =
   if i = [] then raise _ERR_NO_FILE else
   let parsed_files = List.map parse_file i in
-  let checked_files = List.map (typecheck lb) parsed_files in
+  let checked_files = List.map (bobTypecheck lb) parsed_files in
   let final_string = Format.(
-                     asprintf "@[%a@]" (pp_print_list (pp_tcOut ~verbose:v)) 
+                     asprintf "@[%a@]" (pp_print_list ~pp_sep:(fun ppf () -> Format.fprintf ppf "@;<8,0>") (pp_tcOut ~verbose:v)) 
                               checked_files) in
   match o with
   | "" -> print_string final_string
