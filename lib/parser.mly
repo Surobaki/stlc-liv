@@ -45,7 +45,8 @@
 %token PLUS MINUS STAR FSLASH
 %token GE LE EQ NEQ
 
-%left SEMICOLON
+(* All associativies *)
+%left SEMICOLON COMMA
 %left STAR PLUS
 
 %right ARROW LOLLI
@@ -72,7 +73,7 @@ expr:
   (* Unit introduction *)
   | LPAREN RPAREN { TUnit }
   (* App *)
-  | e1 = fact e2 = expr { TApplication (e1, e2) }
+  | e1 = expr e2 = fact { TApplication (e1, e2) }
   (* Binary binary_operations *)
   | o = binary_operation { o }
   (* Let product elimination *)
@@ -95,7 +96,7 @@ expr:
   (* Conditional flow *)
   | IF e1 = expr THEN e2 = expr ELSE e3 = expr { TIf (e1, e2, e3) }
   (* Pairs *)
-  | e1 = expr COMMA e2 = expr { TProduct (e1, e2) }
+  | LPAREN e1 = expr COMMA e2 = expr RPAREN { TProduct (e1, e2) }
   (* Sequencing *)
   | e1 = expr SEMICOLON e2 = expr { TSequence (e1, e2) }
   (* Session stuff *)
@@ -140,7 +141,6 @@ fact:
 
 (* Type parser *)
 ty:
-  | LANGLE t = sess_ty RANGLE { Session t }
   | UNIT { Unit }
   | LPAREN t = ty RPAREN { t }
   | t1 = ty ARROW t2 = ty { Arrow (t1, t2) } 
@@ -149,6 +149,7 @@ ty:
   | t1 = ty STAR t2 = ty { Product (t1, t2) }
   | TILDE t = ty { Dual t }
   | t = base_ty { t }
+  | t = sess_ty { Session t }
 
 sess_ty:
   | ENDBANG { SendEnd }

@@ -1,0 +1,5 @@
+let goober = (\gooboo:Int+Int . 
+  (match gooboo with 
+    (i -> i, 
+     b -> b))) in
+((goober (inl 5)), 10)

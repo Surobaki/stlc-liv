@@ -335,7 +335,8 @@ let rec ccTc (l : linearityBase) (tm : term)
     let (_, tm2Req, tm2Cst) = typeCheck tm2 in
     let (sum1Typ, sum1Cst) = checkVariable tm1Bind tm1Req in
     let (sum2Typ, sum2Cst) = checkVariable tm2Bind tm2Req in
-    let (brMergeReq, brMergeCst) = mergeBranch (tm1Req) (tm2Req) in
+    let (brMergeReq, brMergeCst) = 
+      mergeBranch (tm1Req /< tm1Bind) (tm2Req /< tm2Bind) in
     let (seqMergeReq, seqMergeCst) = mergeSequence brMergeReq tmScrutReq in
     let fixedCst = (%+) ((%*) (Equal (sum1Typ, sum2Typ))) 
                         ((%*) (Equal (tmScrutTyp, Sum (sum1Typ, sum2Typ)))) in
@@ -351,11 +352,6 @@ let rec ccTc (l : linearityBase) (tm : term)
     let correlatedCst = (%*) (Equal (newTyp, bndTyp)) in
     let (req12, cst12) = mergeSequence bndReq (coreReq /< bnd) in
     let outCst = bndCst %+ coreCst %+ extensionCst %+ cst12 %+ correlatedCst in
-    let () = pp_TypC (Format.get_std_formatter ()) bndCst in
-    let () = pp_TypC (Format.get_std_formatter ()) coreCst in
-    let () = pp_TypC (Format.get_std_formatter ()) extensionCst in
-    let () = pp_TypC (Format.get_std_formatter ()) cst12 in
-    let () = pp_TypC (Format.get_std_formatter ()) correlatedCst in
     (coreTyp, req12, outCst)
   | TLetProduct (bndLeft, bndRight, bndTm, coreTm) ->
     let (bndTyp, bndReq, bndCst) = typeCheck bndTm in
@@ -369,12 +365,9 @@ let rec ccTc (l : linearityBase) (tm : term)
                         %+ lProdCst %+ rProdCst %+ fixedCst in
     (coreTyp, mergeReq, outCst)
   | TIf (tm1, tm2, tm3) ->
-    let (tm1Typ, tm1Req, tm1Cst) = 
-      typeCheck tm1 in
-    let (tm2Typ, tm2Req, tm2Cst) = 
-      typeCheck tm2 in
-    let (tm3Typ, tm3Req, tm3Cst) = 
-      typeCheck tm3 in
+    let (tm1Typ, tm1Req, tm1Cst) = typeCheck tm1 in
+    let (tm2Typ, tm2Req, tm2Cst) = typeCheck tm2 in
+    let (tm3Typ, tm3Req, tm3Cst) = typeCheck tm3 in
     let (branchReq, branchCst) = mergeBranch tm2Req tm3Req in
     let (seqReq, seqCst) = mergeSequence tm1Req branchReq in
     let (req123, cst123) = (seqReq, branchCst %+ seqCst) in
@@ -385,8 +378,7 @@ let rec ccTc (l : linearityBase) (tm : term)
     let outCst = ifCst %+ inputCst %+ cst123 in
     (tm2Typ, req123, outCst)
   | TFix (tm, search) -> 
-    let (_, tmReq, tmCst) = 
-      typeCheck tm in
+    let (_, tmReq, tmCst) = typeCheck tm in
     let freshTyp = TypeVar (TyVar.fresh ()) in
     let newCst = (%*) (Equal (search, Arrow (freshTyp, freshTyp))) in
     let unrCst = genUnrestricted tmReq in
@@ -431,7 +423,7 @@ let rec ccTc (l : linearityBase) (tm : term)
     let receivedSesh = TypeVar (TyVar.fresh ()) in
     let fixedCst = (%*) 
                    (Equal (tmTyp, 
-                           LinearArrow (receivedSesh, Session SendEnd))) in
+                           Arrow (receivedSesh, Session SendEnd))) in
     let outCst = tmCst %+ fixedCst in
     (Dual receivedSesh, tmReq, outCst)
   | TWait tm ->
@@ -509,13 +501,10 @@ let rec applySubst (substitution : livSubst) (examined : typ) : typ =
 and applySubstSession (substitution : livSubst) (examined : sessTyp) 
                       : sessTyp = 
   match examined with
-  | Send (t, Session s) -> Send (applySubst substitution t, 
-                         Session (applySubstSession substitution s))
-  | Receive (t, Session s) -> Receive (applySubst substitution t, 
-                               Session (applySubstSession substitution s))
-  | Send (_, _) | Receive (_, _) -> 
-      raise (Errors.Type_error {|The session continuation when substituting 
-                                 does not appear to be a session type.|})
+  | Send (t, cont) -> Send (applySubst substitution t, 
+                             applySubst substitution cont)
+  | Receive (t, cont) -> Receive (applySubst substitution t, 
+                             applySubst substitution cont)
   | SendChoice ss -> 
     SendChoice 
       (List.fold_right
@@ -597,7 +586,38 @@ let rec unifyEqualities (constraintList : TypC.elt list)
       | Product (t1, p1), Product (t2, p2) | Sum (t1, p1), Sum (t2, p2)
       | Arrow (t1, p1), Arrow (t2, p2) 
       | LinearArrow (t1, p1), LinearArrow (t2, p2) -> 
-        unifyEqualities @@ Equal (t1, t2) :: Equal (p1, p2) :: tail
+        unifyEqualities (Equal (t1, t2) :: Equal (p1, p2) :: tail)
+          
+      | t, Dual dt | Dual dt, t ->
+        (match dt with
+         | Session (Send (hd, tl)) ->
+           unifyEqualities (Equal (t, Session (Receive (hd, Dual tl))) :: tail)
+         | Session (Receive (hd, tl)) -> 
+           unifyEqualities (Equal (t, Session (Send (hd, Dual tl))) :: tail)
+         | Session (OfferChoice choices) ->
+           let (binders, types) = List.split choices in
+           let reconstructedTyp = List.combine 
+                                    binders 
+                                    (List.map (fun el -> Dual el) types) in
+           unifyEqualities ((Equal (t, Session (SendChoice reconstructedTyp)) :: tail))
+         | Session (SendChoice choices) ->
+           let (binders, types) = List.split choices in
+           let reconstructedTyp = List.combine 
+                                    binders 
+                                    (List.map (fun el -> Dual el) types) in
+           unifyEqualities ((Equal (t, Session (OfferChoice reconstructedTyp)) :: tail))
+         | Session SendEnd ->
+           unifyEqualities (Equal (t, Session ReceiveEnd) :: tail)
+         | Session ReceiveEnd ->
+           unifyEqualities (Equal (t, Session SendEnd) :: tail)
+         | TypeVar id -> 
+           (match t with
+           | TypeVar _ -> 
+             raise (Errors.Type_error "Trying to switch dualities between two type variables.")
+           | _ -> unifyEqualities (Equal (Dual t, TypeVar id) :: tail))
+           (* Two typevars with duality may lead to nontermination *)
+         | _ -> raise (Errors.Type_error "Found a non-session type in a session continuation.")
+        )
       
       | Base t1, Base t2 -> 
         if t1 = t2 then unifyEqualities tail
@@ -609,7 +629,7 @@ let rec unifyEqualities (constraintList : TypC.elt list)
         else let subst = (tvId, t) in
         let newCsts = substConstraints subst tail in
         subst :: unifyEqualities newCsts
-          
+
       | Session s1, Session s2 ->
         (match (s1, s2) with
         | Send (headTyp1, contTyp1), Send (headTyp2, contTyp2)
@@ -622,9 +642,13 @@ let rec unifyEqualities (constraintList : TypC.elt list)
                                    implemented yet due to subtyping concerns.|})
         | _ -> raise (Errors.Type_error "Can't unify a session case. What's going on?")
         )
-
-       
-      | _ -> raise (Errors.Type_error "Can't unify a case. What's going on?")
+        
+      | t1, t2 -> 
+        Format.printf "Your types are %a and %a@;" 
+          pp_typ t1 pp_typ t2; 
+        Format.printf "Your constraints are %a@;" 
+          pp_TypC (TypC.of_list tail); 
+        raise (Errors.Type_error "Can't unify a case. What's going on?")
         )
       )
     | Unrestricted t -> (
@@ -673,7 +697,7 @@ let bobTypecheck (l : linearityBase) (tm : term) : tcOut =
 (* Utility function for pretty-printing type checker output *)
 let pp_tcOut ?(verbose=false) (out : Format.formatter) ((t,c) : tcOut) =
   if verbose
-  then Format.fprintf out "@[<hov>Term type:@ <%a>@;Under constraints:@ {%a}@]@."
+  then Format.fprintf out "@[<hov>Term type:@ <%a>@.Under constraints:@ {%a}@]\n@."
                           pp_typ t pp_TypC c
-  else Format.fprintf out "@[<hov>Term type:@ <%a>@]@." pp_typ t
+  else Format.fprintf out "@[<hov>Term type:@ <%a>@]\n@." pp_typ t
 

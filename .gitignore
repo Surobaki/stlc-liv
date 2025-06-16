@@ -88,3 +88,4 @@ lib/stlc_lexrules.ml
 
 # VSCode
 .vscode**
+/main

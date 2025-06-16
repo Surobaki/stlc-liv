@@ -1,0 +1,40 @@
+{ "groups":
+    [
+        { "group": "Standard constructs",
+          "tests":
+            [
+                {
+                    "name": "Let-abstract-branch-apply, works in all bases.",
+                    "filename": "./pcf-terms-1.wff",
+                    "exit_code": 0
+                },
+                {
+                    "name": "Abstract-apply, works in all bases.",
+                    "filename": "./pcf-terms-2.wff",
+                    "exit_code": 0
+                },
+                {
+                    "name": "Sum type introduction and elimination, works in all bases.",
+                    "filename": "./pcf-terms-3.wff",
+                    "exit_code": 0
+                },
+                {
+                    "name": "Multiple abstractions and applications, fails in linear system.",
+                    "filename": "./pcf-terms-4.wff",
+                    "exit_code": 1
+                }
+            ]
+        },
+        {
+          "group": "Session types",
+          "tests":
+            [
+                {
+                    "name": "Basic shopper with fork and wait. Works in linearity.",
+                    "filename": "./shopper.wff",
+                    "exit_code": 0
+                }
+            ]
+        }
+    ]
+}
