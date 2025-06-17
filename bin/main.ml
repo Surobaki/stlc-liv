@@ -69,17 +69,17 @@ let secure_argument { lin_base_str = lb; verbosity = v;
 (* Wrapper for type checking *)
 let typecheck_wrapper { lin_base = lb; verbosity = v; 
                         out_file = o; in_files = i } : unit =
-  if i = [] then raise _ERR_NO_FILE else
+  if i = [] then exit 2 else
   let parsed_files = List.map parse_file i in
   (* AST Debug Printing *)
   List.iter 
     (fun x -> 
-      Format.printf "@[<hv>The AST:@;<1 2>%a@]" 
+      Format.printf "@[The AST:@;<1 2>%a@]" 
       CoreLang.Ast.pp_term x) 
     parsed_files;
   let checked_files = List.map (bobTypecheck lb) parsed_files in
   let final_string = Format.(
-                     asprintf "@[<hv>Typecheck results: @;<1 2>@[<hov>%a@]@]" 
+                     asprintf "@[Typecheck results: @;<1 2>@[%a@]@]" 
                      (pp_print_list ~pp_sep:(fun ppf () -> 
                                              Format.fprintf ppf "@.") 
                        (pp_tcOut ~verbose:v))

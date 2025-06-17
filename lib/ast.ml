@@ -173,8 +173,8 @@ and pp_sessTyp (out : Format.formatter) (s : sessTyp) =
       (Format.pp_print_list
         ~pp_sep:(fun ppf () -> Format.fprintf ppf ",@ ")
         Format.pp_print_string) labels
-  | SendEnd -> Format.print_string ".end!"
-  | ReceiveEnd -> Format.print_string ".end?"
+  | SendEnd -> Format.print_string ". end!"
+  | ReceiveEnd -> Format.print_string ". end?"
 
 let pp_typConstraint (out : Format.formatter) (c : typConstraint) =
   match c with
@@ -255,7 +255,7 @@ let rec pp_term (out : Format.formatter) (t : term) =
       pp_term tm1
       pp_term tm2
   | TLetProduct (bndLeft, bndRight, tmBound, tmCore) -> 
-      Format.fprintf out "PRODELIM(%a,@ %a,@ =@ %a@ IN@ %a"
+      Format.fprintf out "PRODELIM(%a,@ %a,@ =@ %a@ IN@ %a)"
       pp_binder bndLeft
       pp_binder bndRight
       pp_term tmBound
