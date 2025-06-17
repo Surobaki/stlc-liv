@@ -153,9 +153,9 @@ let rec pp_typ (out : Format.formatter) (t : typ) =
   | Unit -> Format.print_string "𝟙"
 and pp_sessTyp (out : Format.formatter) (s : sessTyp) =
   match s with 
-  | Send (t, s') -> Format.fprintf out "! %a@;<1 2>%a"
+  | Send (t, s') -> Format.fprintf out "! %a@;%a"
                       pp_typ t pp_typ s' 
-  | Receive (t, s') -> Format.fprintf out "? %a@;<1 2>%a"
+  | Receive (t, s') -> Format.fprintf out "? %a@;%a"
                          pp_typ t pp_typ s' 
   | SendChoice ss -> let (labels, typs) = partition2 ss in
     Format.fprintf out "&〈{%a :@;<1 2>%a}〉"

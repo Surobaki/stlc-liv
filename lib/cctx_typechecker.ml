@@ -459,7 +459,7 @@ let rec ccTc (l : linearityBase) (tm : term)
 
 (* *)
 (* Unification section *)
-type livSubst = binder * typ
+type substitution = binder * typ
 
 let rec occursCheck (t : typ) (checkSubject : typ) : bool = 
   match checkSubject with
@@ -485,7 +485,7 @@ let recoverSession (t : typ) : sessTyp =
   | _ -> raise (Errors.Type_error {|Found a non-session type in a 
                                     selection type branch.|})
 
-let rec applySubst (substitution : livSubst) (examined : typ) : typ =
+let rec applySubst (substitution : substitution) (examined : typ) : typ =
   let applyRec = applySubst substitution in
   let (search, subst) = substitution in
   match examined with
@@ -498,7 +498,7 @@ let rec applySubst (substitution : livSubst) (examined : typ) : typ =
   | LinearArrow (t1, t2) -> LinearArrow (applyRec t1, applyRec t2)
   | Session s -> Session (applySubstSession substitution s)
   | Dual t -> Dual (applyRec t)
-and applySubstSession (substitution : livSubst) (examined : sessTyp) 
+and applySubstSession (substitution : substitution) (examined : sessTyp) 
                       : sessTyp = 
   match examined with
   | Send (t, cont) -> Send (applySubst substitution t, 
@@ -522,17 +522,17 @@ and applySubstSession (substitution : livSubst) (examined : sessTyp)
   | SendEnd -> SendEnd
   | ReceiveEnd -> ReceiveEnd
 
-let substConstraint (substitution : livSubst) (c : TypC.elt) : TypC.elt = 
+let substConstraint (substitution : substitution) (c : TypC.elt) : TypC.elt = 
   match c with
   | Unrestricted t -> Unrestricted (applySubst substitution t)
   | Equal (t1, t2) -> Equal (applySubst substitution t1,
                              applySubst substitution t2)
 
-let substConstraints (substitution : livSubst) 
+let substConstraints (substitution : substitution) 
                      (cs : TypC.elt list) : TypC.elt list =
   List.map (fun constr -> substConstraint substitution constr) cs
 
-let closeSubsts (substitutions : livSubst list) (examined : typ) : typ = 
+let closeSubsts (substitutions : substitution list) (examined : typ) : typ = 
   List.fold_left 
   (fun subject substitution -> applySubst substitution subject) 
   examined substitutions 
@@ -575,7 +575,7 @@ and isClosedSess (s : sessTyp) : bool =
   | SendEnd | ReceiveEnd -> true
 
 let rec unifyEqualities (constraintList : TypC.elt list) 
-                                 : livSubst list =
+                                 : substitution list =
   match constraintList with
   | [] -> []
   | cst :: tail -> (
@@ -587,45 +587,62 @@ let rec unifyEqualities (constraintList : TypC.elt list)
       | Arrow (t1, p1), Arrow (t2, p2) 
       | LinearArrow (t1, p1), LinearArrow (t2, p2) -> 
         unifyEqualities (Equal (t1, t2) :: Equal (p1, p2) :: tail)
-          
-      | t, Dual dt | Dual dt, t ->
-        (match dt with
-         | Session (Send (hd, tl)) ->
-           unifyEqualities (Equal (t, Session (Receive (hd, Dual tl))) :: tail)
-         | Session (Receive (hd, tl)) -> 
-           unifyEqualities (Equal (t, Session (Send (hd, Dual tl))) :: tail)
-         | Session (OfferChoice choices) ->
-           let (binders, types) = List.split choices in
-           let reconstructedTyp = List.combine 
-                                    binders 
-                                    (List.map (fun el -> Dual el) types) in
-           unifyEqualities ((Equal (t, Session (SendChoice reconstructedTyp)) :: tail))
-         | Session (SendChoice choices) ->
-           let (binders, types) = List.split choices in
-           let reconstructedTyp = List.combine 
-                                    binders 
-                                    (List.map (fun el -> Dual el) types) in
-           unifyEqualities ((Equal (t, Session (OfferChoice reconstructedTyp)) :: tail))
-         | Session SendEnd ->
-           unifyEqualities (Equal (t, Session ReceiveEnd) :: tail)
-         | Session ReceiveEnd ->
-           unifyEqualities (Equal (t, Session SendEnd) :: tail)
-         | TypeVar id -> 
-           (match t with
-           | TypeVar _ -> 
-             raise (Errors.Type_error "Trying to switch dualities between two type variables.")
-           | _ -> unifyEqualities (Equal (Dual t, TypeVar id) :: tail))
-           (* Two typevars with duality may lead to nontermination *)
-         | _ -> raise (Errors.Type_error "Found a non-session type in a session continuation.")
-        )
       
+      | TypeVar id, Dual dt | Dual dt, TypeVar id ->
+        let tv = TypeVar id in
+        if occursCheck tv dt 
+        then 
+        raise (Errors.Type_error {|Found repeating occurrence of free type|})
+        else 
+        let subst : substitution = (id, Dual dt) in
+        let newCsts = substConstraints subst tail in
+        subst :: unifyEqualities newCsts
+      
+      | Session s, Dual (TypeVar id) | Dual (TypeVar id), Session s ->
+        let tv = TypeVar id in
+        if occursCheckSess tv s
+        then
+        raise (Errors.Type_error {|Found repeating occurrence of free type|})
+        else
+        (match s with
+        | Send (t1, t2) -> unifyEqualities 
+                           (Equal (tv, Session (Receive (t1, Dual t2))) :: tail)
+        | Receive (t1, t2) -> 
+                           unifyEqualities (Equal 
+                                             (tv, Session (Send (t1, Dual t2))) 
+                                           :: tail)
+        | _ -> raise (Errors.Type_error {|Wowzer|})
+        )
+      | Session s, Dual (Session ds) | Dual (Session ds), Session s ->
+        (match s, ds with
+        | Send (hd1, tl1), Receive (hd2, tl2)
+        | Receive (hd1, tl1), Send (hd2, tl2) ->
+          unifyEqualities (Equal (hd1, hd2) :: Equal (tl1, Dual tl2) :: tail)
+        | SendEnd, ReceiveEnd | ReceiveEnd, SendEnd ->
+          unifyEqualities tail
+        | SendChoice ss1, OfferChoice ss2 | OfferChoice ss1, SendChoice ss2 ->
+          let (ss1_binds, ss1_typs) = List.split ss1 in
+          let (ss2_binds, ss2_typs) = List.split ss2 in
+          if List.equal (fun el1 el2 -> el1 = el2) ss1_binds ss2_binds
+          then unifyEqualities @@ List.append 
+                                  (List.map2 (fun bnd_left bnd_right -> 
+                                              Equal (bnd_left, bnd_right)) 
+                                    ss1_typs ss2_typs) 
+                                  tail
+          else raise (Errors.Type_error {|Mismatched binders in two 
+                                          choice session types.|})
+        | _, _ -> raise (Errors.Type_error {|Incompatible session types.
+                                             Uncaught case.|}))
+       
       | Base t1, Base t2 -> 
         if t1 = t2 then unifyEqualities tail
         else raise (Errors.Type_error {|Base type mismatch.|}) (* Redundant *)
-             
+      
       | TypeVar tvId, t | t, TypeVar tvId ->
         let tv = TypeVar tvId in
-        if occursCheck tv t then raise (Errors.Type_error "Occurs check failed")
+        if occursCheck tv t 
+        then raise (Errors.Type_error 
+                    {|Found repeating occurrence of free type|})
         else let subst = (tvId, t) in
         let newCsts = substConstraints subst tail in
         subst :: unifyEqualities newCsts
@@ -640,7 +657,8 @@ let rec unifyEqualities (constraintList : TypC.elt list)
         | OfferChoice _, OfferChoice _ | SendChoice _, SendChoice _ ->
           raise (Errors.Type_error {|Branching choice unification has not been 
                                    implemented yet due to subtyping concerns.|})
-        | _ -> raise (Errors.Type_error "Can't unify a session case. What's going on?")
+        | _ -> raise (Errors.Type_error {|Can't unify a session case. 
+                                          What's going on?|})
         )
         
       | t1, t2 -> 
@@ -666,12 +684,12 @@ let reverseOrderUnrestricted (substitution : typConstraint) : bool =
   | _ -> true
 
 let closeUnrestrictedSubsts (constr : typConstraint) 
-                            (substitutions : livSubst list) : typ =
+                            (substitutions : substitution list) : typ =
   match constr with 
   | Unrestricted typVar -> closeSubsts substitutions typVar
   | _ -> raise _UNIFICATION_ERROR_OTHER 
 
-let resolveConstraints (constraints : TypC.t) : livSubst list =
+let resolveConstraints (constraints : TypC.t) : substitution list =
   let constraintsList = TypC.elements constraints in
   let (equalityList, unrestrictionList) = 
     List.partition 
@@ -686,8 +704,9 @@ let resolveConstraints (constraints : TypC.t) : livSubst list =
   else raise _UNIFICATION_ERROR_OTHER
 
 let checkResolve (l : linearityBase) (tm : term) 
-  : cctxOut * (livSubst list) =
+  : cctxOut * (substitution list) =
   let (_, _, cst) as out = ccTc l tm in  
+  let () = Format.printf "Constraints: %a\n" pp_TypC cst in
   (out, resolveConstraints cst)
 
 let bobTypecheck (l : linearityBase) (tm : term) : tcOut =
