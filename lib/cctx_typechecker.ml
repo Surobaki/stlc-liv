@@ -343,27 +343,27 @@ let rec ccTc (l : linearityBase) (tm : term)
     let outCst = tm1Cst %+ tm2Cst %+ sum1Cst %+ sum2Cst %+ tmScrutCst
                         %+ brMergeCst %+ seqMergeCst %+ fixedCst in
     (tm1Typ, seqMergeReq, outCst)
-  | TLet (bnd, bndTm, coreTm) -> 
+  | TLet (bnd, bndTm, contTm) -> 
     let (bndTyp, bndReq, bndCst) = 
       typeCheck bndTm in
-    let (coreTyp, coreReq, coreCst) = 
-      typeCheck coreTm in
-    let (newTyp, extensionCst) = checkVariable bnd coreReq in
+    let (contTyp, contReq, contCst) = 
+      typeCheck contTm in
+    let (newTyp, extensionCst) = checkVariable bnd contReq in
     let correlatedCst = (%*) (Equal (newTyp, bndTyp)) in
-    let (req12, cst12) = mergeSequence bndReq (coreReq /< bnd) in
-    let outCst = bndCst %+ coreCst %+ extensionCst %+ cst12 %+ correlatedCst in
-    (coreTyp, req12, outCst)
-  | TLetProduct (bndLeft, bndRight, bndTm, coreTm) ->
+    let (req12, cst12) = mergeSequence bndReq (contReq /< bnd) in
+    let outCst = bndCst %+ contCst %+ extensionCst %+ cst12 %+ correlatedCst in
+    (contTyp, req12, outCst)
+  | TLetProduct (bndLeft, bndRight, bndTm, contTm) ->
     let (bndTyp, bndReq, bndCst) = typeCheck bndTm in
-    let (coreTyp, coreReq, coreCst) = typeCheck coreTm in
+    let (contTyp, contReq, contCst) = typeCheck contTm in
     let (mergeReq, mergeCst) = mergeSequence 
-                               bndReq ((coreReq /< bndLeft) /< bndRight) in
-    let (lProdTyp, lProdCst) = checkVariable bndLeft coreReq in
-    let (rProdTyp, rProdCst) = checkVariable bndRight coreReq in
+                               bndReq ((contReq /< bndLeft) /< bndRight) in
+    let (lProdTyp, lProdCst) = checkVariable bndLeft contReq in
+    let (rProdTyp, rProdCst) = checkVariable bndRight contReq in
     let fixedCst = (%*) (Equal (bndTyp, Product (lProdTyp, rProdTyp))) in
-    let outCst = bndCst %+ coreCst %+ mergeCst 
+    let outCst = bndCst %+ contCst %+ mergeCst 
                         %+ lProdCst %+ rProdCst %+ fixedCst in
-    (coreTyp, mergeReq, outCst)
+    (contTyp, mergeReq, outCst)
   | TIf (tm1, tm2, tm3) ->
     let (tm1Typ, tm1Req, tm1Cst) = typeCheck tm1 in
     let (tm2Typ, tm2Req, tm2Cst) = typeCheck tm2 in
