@@ -98,7 +98,7 @@ expr:
   (* Pairs *)
   | LPAREN e1 = expr COMMA e2 = expr RPAREN { TProduct (e1, e2) }
   (* Sequencing *)
-  | e1 = expr SEMICOLON e2 = expr { TSequence (e1, e2) }
+  | e1 = fact SEMICOLON e2 = expr { TSequence (e1, e2) }
   (* Session stuff *)
   | SEND e1 = fact e2 = expr { TSend (e1, e2) }
   | RECEIVE e = expr { TReceive e }
