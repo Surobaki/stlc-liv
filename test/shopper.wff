@@ -1,8 +1,9 @@
-let shopper = fork (\shop:(?Int.!Int.endbang) . 
-  let (x,shop) = receive shop in
-  send x shop
-) in
-
+(
+let shopper = fork 
+(\shop:(?Int.!Int.endbang) . 
+  let (x, shop) = receive shop in 
+  send x shop) 
+in
 let shopper = send 5 shopper in
-let (result,shopper) = receive shopper in
-wait shopper; result
+let (result, shopper) = receive shopper in
+wait shopper); result
