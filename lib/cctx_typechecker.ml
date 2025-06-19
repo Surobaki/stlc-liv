@@ -706,7 +706,7 @@ let resolveConstraints (constraints : TypC.t) : substitution list =
 let checkResolve (l : linearityBase) (tm : term) 
   : cctxOut * (substitution list) =
   let (_, _, cst) as out = ccTc l tm in  
-  let () = Format.printf "Constraints: %a\n" pp_TypC cst in
+  Format.printf "Constraints: [%a]@." pp_TypC cst;
   (out, resolveConstraints cst)
 
 let bobTypecheck (l : linearityBase) (tm : term) : tcOut =

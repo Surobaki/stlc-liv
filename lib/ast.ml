@@ -285,8 +285,8 @@ let rec pp_term (out : Format.formatter) (t : term) =
       Format.fprintf out "SELECT@ %a@ FROM@ %a"
       Format.pp_print_string bind
       pp_term tm
-  | TFork tm -> Format.fprintf out "FORK@ %a" pp_term tm
-  | TWait tm -> Format.fprintf out "WAIT@ %a" pp_term tm
+  | TFork tm -> Format.fprintf out "(FORK@ %a)" pp_term tm
+  | TWait tm -> Format.fprintf out "(WAIT@ %a)" pp_term tm
   | TBinOp (op, tm1, tm2) -> 
       Format.fprintf out "BINOP@ %a@ %a@ %a"
       pp_term tm1

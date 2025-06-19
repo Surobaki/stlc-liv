@@ -102,8 +102,8 @@ expr:
   (* Session stuff *)
   | SEND e1 = fact e2 = expr { TSend (e1, e2) }
   | RECEIVE e = expr { TReceive e }
-  | FORK e = expr { TFork e }
-  | WAIT e = expr { TWait e }
+  | FORK e = fact { TFork e }
+  | WAIT e = fact { TWait e }
   | OFFER o = expr LBRACE l1 = VARIABLE LPAREN s1 = VARIABLE RPAREN ARROW 
                             e1 = expr COMMA
                           l2 = VARIABLE LPAREN s2 = VARIABLE RPAREN ARROW 

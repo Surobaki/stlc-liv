@@ -74,12 +74,12 @@ let typecheck_wrapper { lin_base = lb; verbosity = v;
   (* AST Debug Printing *)
   List.iter 
     (fun x -> 
-      Format.printf "@[The AST:@;<1 2>%a@]" 
+      Format.printf "@[The AST:@;<1 2>%a@]@." 
       CoreLang.Ast.pp_term x) 
     parsed_files;
   let checked_files = List.map (bobTypecheck lb) parsed_files in
   let final_string = Format.(
-                     asprintf "@[Typecheck results: @;<1 2>@[%a@]@]" 
+                     asprintf "@[Typecheck results: @;<1 2>@[%a@]@" 
                      (pp_print_list ~pp_sep:(fun ppf () -> 
                                              Format.fprintf ppf "@.") 
                        (pp_tcOut ~verbose:v))
