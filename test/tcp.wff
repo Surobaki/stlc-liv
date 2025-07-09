@@ -1,0 +1,18 @@
+let server = (\handshake : ?Int.!Int.?Int.endbang . 
+  let tcp_syn_ack = 1 in
+  let (tcp_syn, handshake) = receive handshake in
+  let handshake = send tcp_syn_ack handshake in
+  let (tcp_ack, handshake) = receive handshake in
+  if tcp_syn == 0 then
+    if tcp_ack == 2 then handshake else handshake
+  else 
+    if tcp_ack == 2 then handshake else handshake) in
+
+let syn = 0 in
+
+let client = fork server in
+let client = send syn client in
+let (syn_ack, client) = receive client in
+let client = send (syn_ack + 1) client in
+wait client
+
