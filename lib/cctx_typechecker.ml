@@ -90,6 +90,9 @@ let optionNot (bo : bool option) : bool option =
 
 let ( !? ) b = optionNot b
 
+(* *)
+(* Merge operators *)
+
 let linSeqMerge (req1 : typCtx) 
                 (req2 : typCtx) : typCtx * TypC.t =
   let malformedMerge = TypR.bindings (TypR.merge
@@ -220,6 +223,9 @@ let rec merge (m : mergeType) (l : linearityBase) (inp : typCtx list)
 
 let genUnrestricted (ctx : typCtx) : TypC.t =
   TypC.of_list (List.map (fun (_, typ) -> Unrestricted typ) (TypR.to_list ctx))
+
+(* *)
+(* Check operations *)
 
 let linCheck (bind : binder) (ctx : typCtx)
              : typ * TypC.t =
