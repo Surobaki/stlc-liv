@@ -423,7 +423,15 @@ let rec ccTc (l : linearityBase) (tm : term)
                  %+ (%*) (Equal (tmTyp, Session (SendChoice (List.combine labels checkTyps)))) in
     let outTyp = List.nth tmTyps 0 in
     (outTyp, outReq, outCst)
-  | TSelect (_, _) -> raise (Errors.Type_error "Olivia did not implement this yet")
+  | TSelect (label, sessTm) ->
+    let (tmTyp, tmReq, tmCst) = typeCheck sessTm in
+    let contTy = TypeVar (TyVar.fresh ()) in
+    let outCst = tmCst %+ 
+                 (%*) (Equal (tmTyp, 
+                              Session (OfferChoice ((label, contTy) :: []))
+                             )
+                       ) in
+    (tmTyp, tmReq, outCst)
   | TFork tm ->
     let (tmTyp, tmReq, tmCst) = typeCheck tm in
     let receivedSesh = TypeVar (TyVar.fresh ()) in
