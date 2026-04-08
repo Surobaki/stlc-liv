@@ -143,9 +143,9 @@ let rec pp_typ (out : Format.formatter) (t : typ) =
   | Unit -> Format.fprintf out "Unit"
 and pp_sessTyp (out : Format.formatter) (s : sessTyp) =
   match s with 
-  | Send (t, s') -> Format.fprintf out "!@ %a.@ %a"
+  | Send (t, s') -> Format.fprintf out "!%a.%a"
                       pp_typ t pp_typ s' 
-  | Receive (t, s') -> Format.fprintf out "?@ %a.@ %a"
+  | Receive (t, s') -> Format.fprintf out "?%a.%a"
                          pp_typ t pp_typ s' 
   | SendChoice ss -> let (labels, typs) = partition2 ss in
     Format.fprintf out "&<{%a:%a}>"
@@ -163,8 +163,8 @@ and pp_sessTyp (out : Format.formatter) (s : sessTyp) =
       (Format.pp_print_list
         ~pp_sep:(fun ppf () -> Format.fprintf ppf ",@ ")
         Format.pp_print_string) labels
-  | SendEnd -> Format.fprintf out ".end!@ "
-  | ReceiveEnd -> Format.fprintf out ".end?@ "
+  | SendEnd -> Format.fprintf out "end!"
+  | ReceiveEnd -> Format.fprintf out "end?"
 
 let pp_typConstraint (out : Format.formatter) (c : typConstraint) =
   match c with
