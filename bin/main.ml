@@ -71,9 +71,10 @@ let typecheck_wrapper { lin_base = lb; verbosity = v;
   if i = [] then exit 2 else
   let parsed_files = List.map parse_file i in
   (* AST Debug Printing *)
-  List.iter
+  (* Uncomment when things get rough *)
+  (* List.iter
     (fun x -> Format.printf "@.The AST:@;@[%a@]@." CoreLang.Ast.pp_term x)
-    parsed_files;
+    parsed_files; *)
   let checked_files = List.map (bobTypecheck lb) parsed_files in
   let final_string = Format.(
                      asprintf "@[Typecheck results:@;%a@]" 
