@@ -251,7 +251,7 @@ let rec pp_term (out : Format.formatter) (t : term) =
   | TInL tm -> Format.fprintf out "(INL@ %a)" pp_term tm
   | TInR tm -> Format.fprintf out "(INR@ %a)" pp_term tm
   | TCase (tmScrutinee, bndLeft, tmLeft, bndRight, tmRight) -> 
-      Format.fprintf out "(CASE@ %a@ OF@ {inl@ %a@ ↦@ %a@ ,@ inr@ %a@ ↦@ %a@ })"
+      Format.fprintf out "(CASE@ %a@ OF@ {inl@ %a@ ↦@ %a@ ,@ inr@ %a@ ↦@ %a})"
       pp_term tmScrutinee
       pp_binder bndLeft
       pp_term tmLeft
