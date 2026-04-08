@@ -81,13 +81,6 @@ type term =
   | TSelect of label * term
             (* select l in M *)
 
-(* Values for evaluation *)
-type evalVal = VInteger of int
-             | VBoolean of bool
-             | VClosure of binder * term * evalEnv
-(* Evaluation environment *)
-and evalEnv = (varName * evalVal) list
-
 (* Needs to be generalised to session types *)
 type typConstraint = Unrestricted of typ 
                    | Equal of typ * typ
@@ -314,21 +307,4 @@ and pp_offer (out : Format.formatter) (sess : term)
   Format.fprintf out "OFFER@ %a@ {%a}"
   pp_term sess
   pp_case_continuation triples
-
-let rec pp_evalVal (out : Format.formatter) (value : evalVal) =
-  match value with
-  | VInteger i -> Format.pp_print_int out i
-  | VBoolean b -> Format.pp_print_bool out b
-  | VClosure (bind, tm, env) -> Format.fprintf out "CLOS<%a,@ %a,@ %a>"
-                                pp_binder bind
-                                pp_term tm
-                                pp_evalEnv env
-and pp_evalEnv (out : Format.formatter) (env : evalEnv) =
-  let pp_evalEnvEl out (bind, value) = 
-    Format.fprintf out "(%a,@ %a)"
-    pp_binder bind
-    pp_evalVal value
-  in
-  Format.pp_print_list ~pp_sep:(fun ppf () -> Format.fprintf ppf ",@ ")
-  pp_evalEnvEl out env
                            
