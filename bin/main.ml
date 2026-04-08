@@ -62,9 +62,8 @@ type safe_arguments = {
 let secure_argument { lin_base_str = lb; verbosity = v; 
                        out_file = _o; in_files = i } : safe_arguments =
   { lin_base = secure_base lb; verbosity = v;
-    out_file = ""; (* secure_filepath o; *)
-    in_files = [List.hd i];
-    (* in_files = List.filter (fun fp -> fp <> "" && fp <> "\n" && fp <> "\r") (secure_filepaths i) *) }
+    out_file = "";
+    in_files = [List.hd i]; }
 
 (* Wrapper for type checking *)
 let typecheck_wrapper { lin_base = lb; verbosity = v; 
