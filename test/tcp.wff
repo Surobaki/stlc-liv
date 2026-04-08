@@ -14,5 +14,4 @@ let client = fork server in
 let client = send syn client in
 let (syn_ack, client) = receive client in
 let client = send (syn_ack + 1) client in
-(wait client); true
-
+(wait client)
