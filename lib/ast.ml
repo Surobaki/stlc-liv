@@ -81,9 +81,6 @@ type term =
   | TSelect of label * term
             (* select l in M *)
 
-(* Typing environment *)
-type typeEnv = (varName * typ) list 
-
 (* Values for evaluation *)
 type evalVal = VInteger of int
              | VBoolean of bool
