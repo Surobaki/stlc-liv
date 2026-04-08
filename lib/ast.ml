@@ -315,15 +315,6 @@ and pp_offer (out : Format.formatter) (sess : term)
   pp_term sess
   pp_case_continuation triples
 
-let pp_typeEnvSingleton (out : Format.formatter) ((b, t) : binder * typ) =
-  Format.fprintf out "RENV(%a,@ %a)" 
-  pp_binder b
-  pp_typ t
-
-let pp_typeEnv (out : Format.formatter) (env : typeEnv) =
-  Format.pp_print_list ~pp_sep:(fun ppf () -> Format.fprintf ppf ",@ ")
-  pp_typeEnvSingleton out env
-
 let rec pp_evalVal (out : Format.formatter) (value : evalVal) =
   match value with
   | VInteger i -> Format.pp_print_int out i
