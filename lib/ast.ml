@@ -139,26 +139,26 @@ let pp_baseType (out : Format.formatter) (b : baseType) =
 let rec pp_typ (out : Format.formatter) (t : typ) =
   match t with
   | TypeVar tv -> Format.fprintf out "%s" tv
-  | Sum (t1, t2) -> Format.fprintf out "(%a +@ %a)"
+  | Sum (t1, t2) -> Format.fprintf out "(%a@ +@ %a)"
                       pp_typ t1 pp_typ t2
-  | Product (t1, t2) -> Format.fprintf out "(%a *@ %a)"
+  | Product (t1, t2) -> Format.fprintf out "(%a@ *@ %a)"
                           pp_typ t1 pp_typ t2
   | Base b -> pp_baseType out b
-  | Arrow (t1, t2) -> Format.fprintf out "%a →@ %a" 
+  | Arrow (t1, t2) -> Format.fprintf out "(%a@ ->@ %a)" 
                         pp_typ t1 pp_typ t2
-  | LinearArrow (t1, t2) -> Format.fprintf out "%a ⊸@ %a"
+  | LinearArrow (t1, t2) -> Format.fprintf out "(%a@ -o@ %a)"
                               pp_typ t1 pp_typ t2
   | Session t -> pp_sessTyp out t
-  | Dual t -> Format.fprintf out "‾(%a)" pp_typ t
-  | Unit -> Format.print_string "𝟙"
+  | Dual t -> Format.fprintf out "~(%a)" pp_typ t
+  | Unit -> Format.fprintf out "Unit"
 and pp_sessTyp (out : Format.formatter) (s : sessTyp) =
   match s with 
-  | Send (t, s') -> Format.fprintf out "! %a@;%a"
+  | Send (t, s') -> Format.fprintf out "!@ %a.@ %a"
                       pp_typ t pp_typ s' 
-  | Receive (t, s') -> Format.fprintf out "? %a@;%a"
+  | Receive (t, s') -> Format.fprintf out "?@ %a.@ %a"
                          pp_typ t pp_typ s' 
   | SendChoice ss -> let (labels, typs) = partition2 ss in
-    Format.fprintf out "&〈{%a :@;<1 2>%a}〉"
+    Format.fprintf out "&<{%a:%a}>"
       (Format.pp_print_list
         ~pp_sep:(fun ppf () -> Format.fprintf ppf ",@ ")
         pp_typ) typs
@@ -166,23 +166,21 @@ and pp_sessTyp (out : Format.formatter) (s : sessTyp) =
         ~pp_sep:(fun ppf () -> Format.fprintf ppf ",@ ")
         Format.pp_print_string) labels
   | OfferChoice ss -> let (labels, typs) = partition2 ss in
-    Format.fprintf out "⊕〈{%a :@;<1 2>%a}〉"
+    Format.fprintf out "⊕<{%a:%a}>"
       (Format.pp_print_list
         ~pp_sep:(fun ppf () -> Format.fprintf ppf ",@ ")
         pp_typ) typs
       (Format.pp_print_list
         ~pp_sep:(fun ppf () -> Format.fprintf ppf ",@ ")
         Format.pp_print_string) labels
-  | SendEnd -> Format.print_string ". end!"
-  | ReceiveEnd -> Format.print_string ". end?"
+  | SendEnd -> Format.fprintf out ".end!@ "
+  | ReceiveEnd -> Format.fprintf out ".end?@ "
 
 let pp_typConstraint (out : Format.formatter) (c : typConstraint) =
   match c with
-  | Unrestricted t -> Format.fprintf out 
-                        "\u{1D580}(%a)" pp_typ t
-  | Equal (t1, t2) -> Format.fprintf out 
-                      "%a \u{2250}@ %a" 
-                      pp_typ t1 pp_typ t2
+  | Unrestricted t -> Format.fprintf out "U(%a)" pp_typ t
+  | Equal (t1, t2) -> Format.fprintf out "%a@ =@ %a" 
+                        pp_typ t1 pp_typ t2
 
 let pp_TypC (out : Format.formatter) (c : TypC.t) =
   let c_list = TypC.to_list c in
@@ -193,12 +191,15 @@ let pp_TypC (out : Format.formatter) (c : TypC.t) =
       pp_typConstraint) c_list
     
 let pp_typBinding (out : Format.formatter) ((s, t) : string * typ) =
-  Format.fprintf out "%a ↦@ %a" Format.pp_print_string s pp_typ t
+  Format.fprintf out "%s@ ↦@ %a" s pp_typ t
 
 let pp_TypR (out : Format.formatter) (r : typ TypR.t) =
   let r_list = TypR.to_list r in
-  Format.(pp_print_list ~pp_sep:(fun ppf () -> fprintf ppf ", ")) 
-    pp_typBinding out r_list
+  Format.pp_print_list
+    ~pp_sep:(fun ppf () -> Format.fprintf ppf ",@ ") 
+    pp_typBinding
+    out
+    r_list
 
 let pp_binOp (out : Format.formatter) (bin_op : binOp) =
   match bin_op with
@@ -210,85 +211,82 @@ let pp_binOp (out : Format.formatter) (bin_op : binOp) =
  
 let pp_constTerm (out : Format.formatter) (const : constTerm) = 
   match const with
-  | CInteger i -> Format.fprintf out "⟪%a⟫" Format.pp_print_int i
-  | CBoolean b -> Format.fprintf out "⟪%a⟫" Format.pp_print_bool b
-
-let pp_varName (out : Format.formatter) (var : varName) = 
-  Format.pp_print_string out var
+  | CInteger i -> Format.fprintf out "%d" i
+  | CBoolean b -> Format.fprintf out "%b" b
 
 let pp_binder (out : Format.formatter) (var : varName) =
-  Format.fprintf out "\u{0418}(%a)" Format.pp_print_string var
+  Format.fprintf out "%a" Format.pp_print_string var
 
 let rec pp_term (out : Format.formatter) (t : term) =
   match t with
   | TConstant c -> pp_constTerm out c
-  | TVariable v -> pp_varName out v
+  | TVariable v -> pp_binder out v
   | TAbstract (binder, typ, tm) -> 
-      Format.fprintf out "λ%a :@ %a .@ %a"
+      Format.fprintf out "(LAM@ %a@ :@ %a@ .@ @[<hov 1>%a@])"
       pp_binder binder
       pp_typ typ
       pp_term tm
   | TApplication (tm1, tm2) -> 
-      Format.fprintf out "APP(%a TO@ %a)"
+      Format.fprintf out "(APP@ %a@ TO@ %a)"
       pp_term tm1 pp_term tm2
   | TLet (binder, tmBound, tmCore) -> 
-      Format.fprintf out "LET(%a =@ @[%a IN@ %a)@]"
+      Format.fprintf out "(LET@ %a@ =@ %a@ IN@ %a)"
       pp_binder binder
       pp_term tmBound
       pp_term tmCore
   | TFix (tm, typ) -> 
-      Format.fprintf out "FIX(%a :@ %a)"
+      Format.fprintf out "(FIX@ %a@ :@ %a)"
       pp_term tm
       pp_typ typ
   | TIf (tmCnd, tm1, tm2) -> 
-      Format.fprintf out "(%a ?@ %a :@ %a)"
+      Format.fprintf out "(IF@ %a@ THEN@ %a@ ELSE@ %a)"
       pp_term tmCnd
       pp_term tm1
       pp_term tm2
   | TLinAbstract (binder, typ, tm) -> 
-      Format.fprintf out "%@λ%a@ :@ %a@ .@ %a"
+      Format.fprintf out "(LLAM@ %a@ :@ %a@ .@ %a)"
       pp_binder binder
       pp_typ typ
       pp_term tm
   | TProduct (tm1, tm2) -> 
-      Format.fprintf out "PROD(%a,@ %a)"
+      Format.fprintf out "(PROD@ %a@ ,@ %a)"
       pp_term tm1
       pp_term tm2
   | TLetProduct (bndLeft, bndRight, tmBound, tmCore) -> 
-      Format.fprintf out "PRODELIM(%a,@ %a,@ =@ %a@ IN@ %a)"
+      Format.fprintf out "(PRODELIM@ %a@ ,@ %a@ =@ %a@ IN@ %a)"
       pp_binder bndLeft
       pp_binder bndRight
       pp_term tmBound
       pp_term tmCore
-  | TInL tm -> Format.fprintf out "INL %a" pp_term tm
-  | TInR tm -> Format.fprintf out "INR %a" pp_term tm
+  | TInL tm -> Format.fprintf out "(INL@ %a)" pp_term tm
+  | TInR tm -> Format.fprintf out "(INR@ %a)" pp_term tm
   | TCase (tmScrutinee, bndLeft, tmLeft, bndRight, tmRight) -> 
-      Format.fprintf out "CASE@ %a@ IS@ %a@ ↦@ %a@ OR@ %a@ ↦@ %a"
+      Format.fprintf out "(CASE@ %a@ OF@ {inl@ %a@ ↦@ %a@ ,@ inr@ %a@ ↦@ %a@ })"
       pp_term tmScrutinee
       pp_binder bndLeft
       pp_term tmLeft
       pp_binder bndRight
       pp_term tmRight
-  | TUnit -> Format.pp_print_string out "()"
+  | TUnit -> Format.pp_print_string out "(unit_tm)"
   | TSequence (tm1, tm2) -> 
-      Format.fprintf out "%a@ ;@ %a"
+      Format.fprintf out "(%a@ ;@ %a)"
       pp_term tm1
       pp_term tm2
   | TSend (tmSubj, tmSesh) ->
-      Format.fprintf out "SEND@ %a@ OVER@ %a"
+      Format.fprintf out "(SEND@ %a@ OVER@ %a)"
       pp_term tmSubj
       pp_term tmSesh
-  | TReceive tm -> Format.fprintf out "RECE@ %a" pp_term tm
+  | TReceive tm -> Format.fprintf out "(RECEIVE@ %a)" pp_term tm
   | TOffer (sessTm, tripleList) ->
       pp_offer out sessTm tripleList
   | TSelect (bind, tm) ->
-      Format.fprintf out "SELECT@ %a@ FROM@ %a"
+      Format.fprintf out "(SELECT@ %a@ FROM@ %a)"
       Format.pp_print_string bind
       pp_term tm
   | TFork tm -> Format.fprintf out "(FORK@ %a)" pp_term tm
   | TWait tm -> Format.fprintf out "(WAIT@ %a)" pp_term tm
   | TBinOp (op, tm1, tm2) -> 
-      Format.fprintf out "BINOP@ %a@ %a@ %a"
+      Format.fprintf out "(BINOP@ %a@ %a@ %a)"
       pp_term tm1
       pp_binOp op
       pp_term tm2
@@ -306,12 +304,12 @@ and pp_case_continuation_elem (out : Format.formatter)
   pp_term tm
 
 and pp_case (out : Format.formatter) (keyvalues : (binder * term) list) =
-  Format.pp_print_list ~pp_sep:(fun ppf () -> Format.fprintf ppf ", ")
+  Format.pp_print_list ~pp_sep:(fun ppf () -> Format.fprintf ppf ",@ ")
   pp_case_elem out keyvalues
 
 and pp_case_continuation (out : Format.formatter)
                          (triples : (label * binder * term) list) =
-  Format.pp_print_list ~pp_sep:(fun ppf () -> Format.fprintf ppf ", ")
+  Format.pp_print_list ~pp_sep:(fun ppf () -> Format.fprintf ppf ",@ ")
     pp_case_continuation_elem out triples
 
 and pp_offer (out : Format.formatter) (sess : term) 
@@ -326,7 +324,7 @@ let pp_typeEnvSingleton (out : Format.formatter) ((b, t) : binder * typ) =
   pp_typ t
 
 let pp_typeEnv (out : Format.formatter) (env : typeEnv) =
-  Format.pp_print_list ~pp_sep:(fun ppf () -> Format.fprintf ppf ", ")
+  Format.pp_print_list ~pp_sep:(fun ppf () -> Format.fprintf ppf ",@ ")
   pp_typeEnvSingleton out env
 
 let rec pp_evalVal (out : Format.formatter) (value : evalVal) =
@@ -343,6 +341,6 @@ and pp_evalEnv (out : Format.formatter) (env : evalEnv) =
     pp_binder bind
     pp_evalVal value
   in
-  Format.pp_print_list ~pp_sep:(fun ppf () -> Format.fprintf ppf ", ")
+  Format.pp_print_list ~pp_sep:(fun ppf () -> Format.fprintf ppf ",@ ")
   pp_evalEnvEl out env
                            

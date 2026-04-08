@@ -71,16 +71,14 @@ let typecheck_wrapper { lin_base = lb; verbosity = v;
   if i = [] then exit 2 else
   let parsed_files = List.map parse_file i in
   (* AST Debug Printing *)
-  List.iter 
-    (fun x -> 
-      Format.printf "@[The AST:@;<1 2>%a@]@." 
-      CoreLang.Ast.pp_term x) 
+  List.iter
+    (fun x -> Format.printf "@.The AST:@;@[%a@]@." CoreLang.Ast.pp_term x)
     parsed_files;
   let checked_files = List.map (bobTypecheck lb) parsed_files in
   let final_string = Format.(
-                     asprintf "@[Typecheck results: @;<1 2>@[%a@]@" 
+                     asprintf "@[Typecheck results:@;%a@]" 
                      (pp_print_list ~pp_sep:(fun ppf () -> 
-                                             Format.fprintf ppf "@.") 
+                                             Format.fprintf ppf "@;") 
                        (pp_tcOut ~verbose:v))
                      checked_files) in
   match o with
@@ -96,7 +94,7 @@ let () = Arg.parse args_specification anon_fun usage_message;
                              out_file = !arg_output_file; 
                              in_files = !arg_input_file } in
          let args = unsafe_args.in_files in
-         Format.printf "@[<hov 2>Arg count: %d,@ args: [%a]@]@;<1 2>" 
+         Format.printf "@[Arg count: %d,@ args: [%a]@]@." 
            (List.length args)
            (Format.pp_print_list Format.pp_print_string) args;
 
