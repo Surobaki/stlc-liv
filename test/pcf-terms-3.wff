@@ -1,4 +1,4 @@
-let goober = (\gooboo:Int+Int . 
+let goober = (\gooboo . 
   (match gooboo with 
     (i -> i, 
      b -> b))) in

@@ -1,5 +1,5 @@
 let shopper = fork 
-(\shop:(?Int.!Int.endbang) . 
+(\shop. 
   let (x, shop) = receive shop in 
   send x shop) 
 in

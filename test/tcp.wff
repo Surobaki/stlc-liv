@@ -1,4 +1,4 @@
-let server = (\handshake : ?Int.!Int.?Int.endbang . 
+let server = (\handshake . 
   let tcp_syn_ack = 1 in
   let (tcp_syn, handshake) = receive handshake in
   let handshake = send tcp_syn_ack handshake in

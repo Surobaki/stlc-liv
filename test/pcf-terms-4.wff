@@ -1,1 +1,1 @@
-(\x:Bool.(\y:Int.(\z:Int.(if x then y+y else y))))true 6 8
+(\x.(\y.(\z.(if x then y+y else y))))true 6 8

@@ -65,8 +65,8 @@
 
 expr:
   (* Lam *)
-  | LAMBDA v = VARIABLE COLON t = ty DOT e = expr
-    { TAbstract (v, t, e) }
+  | LAMBDA v = VARIABLE DOT e = expr
+    { TAbstract (v, TypeVar (TyVar.fresh ()), e) }
   (* LinLam *)
   | LAMBDA v = VARIABLE COLON AT t = ty DOT e = expr
     { TLinAbstract (v, t, e) }

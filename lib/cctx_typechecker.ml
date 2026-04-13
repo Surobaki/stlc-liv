@@ -625,7 +625,15 @@ let rec unifyEqualities (constraintList : TypC.elt list)
                            unifyEqualities (Equal 
                                              (tv, Session (Send (t1, Dual t2))) 
                                            :: tail)
-        | _ -> raise (Errors.Type_error {|Wowzer|}) 
+        | SendEnd ->
+          let subst : substitution = (id, Session ReceiveEnd) in
+          let newCsts = substConstraints subst tail in
+          subst :: unifyEqualities newCsts
+        | ReceiveEnd ->
+          let subst : substitution = (id, Session SendEnd) in
+          let newCsts = substConstraints subst tail in
+          subst :: unifyEqualities newCsts
+        | _ -> raise (Errors.Type_error {|Wowzer|})
                      (* TODO: Please use sensible errors *)
         )
       | Session s, Dual (Session ds) | Dual (Session ds), Session s ->
