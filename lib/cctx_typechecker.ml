@@ -588,6 +588,28 @@ and isClosedSess (s : sessTyp) : bool =
       List.for_all isClosedSess (List.map (fun (_, t) -> recoverSession t) ss)
   | SendEnd | ReceiveEnd -> true
 
+let rec dualiseSess (t : sessTyp) : sessTyp =
+  match (t : sessTyp) with
+  | Send (p, Session s) -> Receive (p, Session (dualiseSess s))
+  | Receive (p, Session s) -> Send (p, Session (dualiseSess s))
+  | Send (p, TypeVar id) -> Receive (p, Dual (TypeVar id))
+  | Receive (p, TypeVar id) -> Send (p, Dual (TypeVar id))
+  | Send (_, _) | Receive (_, _) -> 
+    raise (Errors.Type_error {|Non-session continuation.|})
+  | SendChoice _ | OfferChoice _ -> 
+    raise (Errors.Type_error {|Choice not implemented.|})
+  | SendEnd -> ReceiveEnd
+  | ReceiveEnd -> SendEnd
+
+let dualiseTy (t : typ) : typ =
+  match t with
+  | Dual dt -> 
+    (match dt with
+    | TypeVar _ -> t
+    | Session s -> Session (dualiseSess s)
+    | _ -> raise (Errors.Type_error {|Dualisation of non-session.|}))
+  | _ -> raise (Errors.Type_error {|Expected dual type.|})
+
 let rec unifyEqualities (constraintList : TypC.elt list) 
                                  : substitution list =
   match constraintList with
@@ -601,66 +623,7 @@ let rec unifyEqualities (constraintList : TypC.elt list)
       | Arrow (t1, p1), Arrow (t2, p2) 
       | LinearArrow (t1, p1), LinearArrow (t2, p2) -> 
         unifyEqualities (Equal (t1, t2) :: Equal (p1, p2) :: tail)
-      
-      | TypeVar id, Dual dt | Dual dt, TypeVar id ->
-        let tv = TypeVar id in
-        if occursCheck tv dt 
-        then 
-        raise (Errors.Type_error {|Found repeating occurrence of free type|})
-        else 
-        let subst : substitution = (id, Dual dt) in
-        let newCsts = substConstraints subst tail in
-        subst :: unifyEqualities newCsts
-      
-      | Session s, Dual (TypeVar id) | Dual (TypeVar id), Session s ->
-        let tv = TypeVar id in
-        if occursCheckSess tv s
-        then
-        raise (Errors.Type_error {|Found repeating occurrence of free type|})
-        else
-        (match s with
-        | Send (t1, t2) -> unifyEqualities 
-                           (Equal (tv, Session (Receive (t1, Dual t2))) :: tail)
-        | Receive (t1, t2) -> 
-                           unifyEqualities (Equal 
-                                             (tv, Session (Send (t1, Dual t2))) 
-                                           :: tail)
-        | SendEnd ->
-          let subst : substitution = (id, Session ReceiveEnd) in
-          let newCsts = substConstraints subst tail in
-          subst :: unifyEqualities newCsts
-        | ReceiveEnd ->
-          let subst : substitution = (id, Session SendEnd) in
-          let newCsts = substConstraints subst tail in
-          subst :: unifyEqualities newCsts
-        | _ -> raise (Errors.Type_error {|Wowzer|})
-                     (* TODO: Please use sensible errors *)
-        )
-      | Session s, Dual (Session ds) | Dual (Session ds), Session s ->
-        (match s, ds with
-        | Send (hd1, tl1), Receive (hd2, tl2)
-        | Receive (hd1, tl1), Send (hd2, tl2) ->
-          unifyEqualities (Equal (hd1, hd2) :: Equal (tl1, Dual tl2) :: tail)
-        | SendEnd, ReceiveEnd | ReceiveEnd, SendEnd ->
-          unifyEqualities tail
-        | SendChoice ss1, OfferChoice ss2 | OfferChoice ss1, SendChoice ss2 ->
-          let (ss1_binds, ss1_typs) = List.split ss1 in
-          let (ss2_binds, ss2_typs) = List.split ss2 in
-          if List.equal (fun el1 el2 -> el1 = el2) ss1_binds ss2_binds
-          then unifyEqualities @@ List.append 
-                                  (List.map2 (fun bnd_left bnd_right -> 
-                                              Equal (bnd_left, bnd_right)) 
-                                    ss1_typs ss2_typs) 
-                                  tail
-          else raise (Errors.Type_error {|Mismatched binders in two 
-                                          choice session types.|})
-        | _, _ -> raise (Errors.Type_error {|Incompatible session types.
-                                             Uncaught case.|}))
-       
-      | Base t1, Base t2 -> 
-        if t1 = t2 then unifyEqualities tail
-        else raise (Errors.Type_error {|Base type mismatch.|}) (* Redundant *)
-      
+	
       | TypeVar tvId, t | t, TypeVar tvId ->
         let tv = TypeVar tvId in
         if occursCheck tv t 
@@ -670,6 +633,16 @@ let rec unifyEqualities (constraintList : TypC.elt list)
         let newCsts = substConstraints subst tail in
         subst :: unifyEqualities newCsts
 
+      | t, Dual TypeVar id | Dual TypeVar id, t ->
+        let tv = TypeVar id in
+        if occursCheck tv t 
+        then raise (Errors.Type_error 
+                    {|Found repeating occurrence of free type|})
+        else let subst = (id, Dual t) in
+        let newCsts = substConstraints subst tail in
+        subst :: unifyEqualities newCsts
+
+      (* Session decomposition *)
       | Session s1, Session s2 ->
         (match (s1, s2) with
         | Send (headTyp1, contTyp1), Send (headTyp2, contTyp2)
@@ -679,17 +652,21 @@ let rec unifyEqualities (constraintList : TypC.elt list)
         | SendEnd, SendEnd | ReceiveEnd, ReceiveEnd -> unifyEqualities tail
         | OfferChoice _, OfferChoice _ | SendChoice _, SendChoice _ ->
           raise (Errors.Type_error {|Branching choice unification has not been 
-                                   implemented yet due to subtyping concerns.|})
+                                   implemented yet due to subtyping.|})
         | _ -> raise (Errors.Type_error {|Can't unify a session case. 
                                           What's going on?|})
         )
-        
+
+      | t, Dual dt | Dual dt, t ->
+	unifyEqualities (Equal (t, dualiseTy (Dual dt)) :: tail)
+
       | t1, t2 -> 
-        Format.printf "Your types are %a and %a@;" 
-          pp_typ t1 pp_typ t2; 
-        Format.printf "Your constraints are %a@;" 
-          pp_TypC (TypC.of_list tail); 
-        raise (Errors.Type_error "Can't unify a case. What's going on?")
+	let err_msg = Format.asprintf 
+	  "Can't unify a case. Your types are %a and %a@;Your constraints are %a@;" 
+	  pp_typ t1 
+	  pp_typ t2 
+	  pp_TypC (TypC.of_list tail) in
+        raise (Errors.Type_error err_msg)
         )
       )
     | Unrestricted t -> (
