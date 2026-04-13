@@ -46,7 +46,6 @@
 %token GE LE EQ NEQ
 
 (* All associativies *)
-%left SEMICOLON COMMA
 %left STAR PLUS
 
 %right ARROW LOLLI
@@ -136,6 +135,8 @@ fact:
   | b = BOOL { TConstant (CBoolean b) }
   | v = VARIABLE { TVariable v }
   | i = INT { TConstant (CInteger i) }
+  | LPAREN RPAREN { TUnit }
+  | LPAREN e1 = expr COMMA e2 = expr RPAREN { TProduct (e1, e2) }
   (* Parenthesised expression *)
   | LPAREN e = expr RPAREN { e }
 
