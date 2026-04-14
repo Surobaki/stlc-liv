@@ -1,5 +1,3 @@
-let failure = (\session . session) in
-
 let server = (\handshake .
   let (syn_seq, handshake) = receive handshake in
   let syn_ack_seq = 10 in
