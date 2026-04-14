@@ -496,8 +496,7 @@ and occursCheckSess (t : typ) (checkSubject : sessTyp) : bool =
 let recoverSession (t : typ) : sessTyp = 
   match t with 
   | Session s -> s 
-  | _ -> raise (Errors.Type_error {|Found a non-session type in a 
-                                    selection type branch.|})
+  | _ -> raise (Errors.Type_error "Found a non-session type in a selection type branch.")
 
 let rec applySubst (substitution : substitution) (examined : typ) : typ =
   let applyRec = applySubst substitution in
@@ -582,8 +581,7 @@ and isClosedSess (s : sessTyp) : bool =
     (match t2 with
     | Session s2 -> isClosed t1 && isClosedSess s2
     | _ -> 
-      raise (Errors.Type_error {|Cannot determine continuation of session
-                                 to be session-typed.|}))
+      raise (Errors.Type_error "Cannot determine continuation of session to be session-typed."))
   | SendChoice ss | OfferChoice ss ->
       List.for_all isClosedSess (List.map (fun (_, t) -> recoverSession t) ss)
   | SendEnd | ReceiveEnd -> true
@@ -595,9 +593,9 @@ let rec dualiseSess (t : sessTyp) : sessTyp =
   | Send (p, TypeVar id) -> Receive (p, Dual (TypeVar id))
   | Receive (p, TypeVar id) -> Send (p, Dual (TypeVar id))
   | Send (_, _) | Receive (_, _) -> 
-    raise (Errors.Type_error {|Non-session continuation.|})
+    raise (Errors.Type_error "Non-session continuation.")
   | SendChoice _ | OfferChoice _ -> 
-    raise (Errors.Type_error {|Choice not implemented.|})
+    raise (Errors.Type_error "Choice not implemented.")
   | SendEnd -> ReceiveEnd
   | ReceiveEnd -> SendEnd
 
@@ -607,8 +605,8 @@ let dualiseTy (t : typ) : typ =
     (match dt with
     | TypeVar _ -> t
     | Session s -> Session (dualiseSess s)
-    | _ -> raise (Errors.Type_error {|Dualisation of non-session.|}))
-  | _ -> raise (Errors.Type_error {|Expected dual type.|})
+    | _ -> raise (Errors.Type_error "Dualisation of non-session."))
+  | _ -> raise (Errors.Type_error "Expected dual type.")
 
 let rec unifyEqualities (constraintList : TypC.elt list) 
                                  : substitution list =
@@ -628,7 +626,7 @@ let rec unifyEqualities (constraintList : TypC.elt list)
         let tv = TypeVar tvId in
         if occursCheck tv t 
         then raise (Errors.Type_error 
-                    {|Found repeating occurrence of free type|})
+                    "Found repeating occurrence of free type")
         else let subst = (tvId, t) in
         let newCsts = substConstraints subst tail in
         subst :: unifyEqualities newCsts
@@ -637,7 +635,7 @@ let rec unifyEqualities (constraintList : TypC.elt list)
         let tv = TypeVar id in
         if occursCheck tv t 
         then raise (Errors.Type_error 
-                    {|Found repeating occurrence of free type|})
+                    "Found repeating occurrence of free type")
         else let subst = (id, Dual t) in
         let newCsts = substConstraints subst tail in
         subst :: unifyEqualities newCsts
@@ -651,10 +649,8 @@ let rec unifyEqualities (constraintList : TypC.elt list)
                           :: Equal (contTyp1, contTyp2) :: tail)
         | SendEnd, SendEnd | ReceiveEnd, ReceiveEnd -> unifyEqualities tail
         | OfferChoice _, OfferChoice _ | SendChoice _, SendChoice _ ->
-          raise (Errors.Type_error {|Branching choice unification has not been 
-                                   implemented yet due to subtyping.|})
-        | _ -> raise (Errors.Type_error {|Can't unify a session case. 
-                                          What's going on?|})
+          raise (Errors.Type_error "Branching choice unification has not been implemented yet due to subtyping.")
+        | _ -> raise (Errors.Type_error "Can't unify a session case. Check that you follow the protocol type.")
         )
 
       | t, Dual dt | Dual dt, t ->
@@ -673,7 +669,7 @@ let rec unifyEqualities (constraintList : TypC.elt list)
         match (isUnrestr t) with
         | Some true -> unifyEqualities tail
         | Some false -> raise 
-                     (Errors.Type_error {|Semantic unrestriction check failed|})
+                     (Errors.Type_error "Semantic unrestriction check failed")
         | None -> unifyEqualities tail
       )
    )
