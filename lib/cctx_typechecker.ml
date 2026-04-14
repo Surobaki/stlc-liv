@@ -650,7 +650,11 @@ let rec unifyEqualities (constraintList : TypC.elt list)
         | SendEnd, SendEnd | ReceiveEnd, ReceiveEnd -> unifyEqualities tail
         | OfferChoice _, OfferChoice _ | SendChoice _, SendChoice _ ->
           raise (Errors.Type_error "Branching choice unification has not been implemented yet due to subtyping.")
-        | _ -> raise (Errors.Type_error "Can't unify a session case. Check that you follow the protocol type.")
+        | st1, st2 -> 
+          raise (Errors.Type_error 
+	  (Format.asprintf
+          "Can't unify a session case. Check that you follow the protocol type. I was given %a and %a to unify."
+	  pp_sessTyp st1 pp_sessTyp st2))
         )
 
       | t, Dual dt | Dual dt, t ->
