@@ -1,0 +1,10 @@
+let server = (\s .
+  let (n, s) = receive s in
+  send (n + 1) s
+) in
+let client = fork server in
+let out = 5 in
+let client = send out client in
+let client = send (999) client in
+let (output, client) = receive client in
+(wait client); output
