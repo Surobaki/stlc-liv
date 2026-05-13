@@ -81,20 +81,18 @@ type term =
   | TSelect of label * term
             (* select l in M *)
 
-(* Needs to be generalised to session types *)
 type typConstraint = Unrestricted of typ 
+		   | C_Session of typ
                    | Equal of typ * typ
 
 (* Sets of constraints *)
 module TypCSet = Set.Make (struct
     type t = typConstraint
     let compare e1 e2 = match e1, e2 with
-      | Unrestricted e1, Unrestricted e2
-      | Equal (e1, _), Unrestricted e2
-      | Unrestricted e1, Equal (e2, _) -> Stdlib.compare e1 e2
       | Equal (e11, e12), Equal (e21, e22) -> if e11 = e21 
                                              then Stdlib.compare e12 e22
                                              else Stdlib.compare e11 e21
+      | e1, e2 -> Stdlib.compare e1 e2
   end)
  
 module TypC = struct 
@@ -171,6 +169,7 @@ let pp_typConstraint (out : Format.formatter) (c : typConstraint) =
   | Unrestricted t -> Format.fprintf out "U(%a)" pp_typ t
   | Equal (t1, t2) -> Format.fprintf out "%a@ =@ %a" 
                         pp_typ t1 pp_typ t2
+  | C_Session t -> Format.fprintf out "S(%a)" pp_typ t
 
 let pp_TypC (out : Format.formatter) (c : TypC.t) =
   let c_list = TypC.to_list c in

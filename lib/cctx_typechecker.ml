@@ -395,17 +395,20 @@ let rec ccTc (l : linearityBase) (tm : term)
     let (tm2Typ, tm2Req, tm2Cst) = typeCheck tm2 in
     let (mergeReq, mergeCst) = mergeSequence tm1Req tm2Req in
     let freshSesh = TypeVar (TyVar.fresh ()) in
-    let fixedCst = (%*) (Equal (tm2Typ, (Session (Send (tm1Typ, freshSesh))))) in
-    let outCst = tm1Cst %+ tm2Cst %+ mergeCst %+ fixedCst in
+    let fixedCst1 = (%*) (Equal 
+                           (tm2Typ, (Session (Send (tm1Typ, freshSesh))))) in
+    let fixedCst2 = (%*) (C_Session freshSesh) in
+    let outCst = tm1Cst %+ tm2Cst %+ mergeCst %+ fixedCst1 %+ fixedCst2 in
     (freshSesh, mergeReq, outCst)
   | TReceive tm ->
     let (tmTyp, tmReq, tmCst) = typeCheck tm in
     let receivedFresh = TypeVar (TyVar.fresh ()) in
     let freshSesh = TypeVar (TyVar.fresh ()) in
-    let fixedCst = (%*) 
-                   (Equal (tmTyp, 
-                           Session (Receive (receivedFresh, freshSesh)))) in
-    let outCst = tmCst %+ fixedCst in
+    let fixedCst1 = (%*) 
+                    (Equal (tmTyp, 
+                            Session (Receive (receivedFresh, freshSesh)))) in
+    let fixedCst2 = (%*) (C_Session freshSesh) in
+    let outCst = tmCst %+ fixedCst1 %+ fixedCst2 in
     (Product (receivedFresh, freshSesh), tmReq, outCst)
   | TOffer (coreTm, offerList) ->
     let brNMerge = merge M_Branching l in
@@ -435,10 +438,11 @@ let rec ccTc (l : linearityBase) (tm : term)
   | TFork tm ->
     let (tmTyp, tmReq, tmCst) = typeCheck tm in
     let receivedSesh = TypeVar (TyVar.fresh ()) in
-    let fixedCst = (%*) 
-                   (Equal (tmTyp, 
-                           Arrow (receivedSesh, Session SendEnd))) in
-    let outCst = tmCst %+ fixedCst in
+    let fixedCst1 = (%*) 
+                    (Equal (tmTyp, 
+                            Arrow (receivedSesh, Session SendEnd))) in
+    let fixedCst2 = (%*) (C_Session receivedSesh)in
+    let outCst = tmCst %+ fixedCst1 %+ fixedCst2 in
     (Dual receivedSesh, tmReq, outCst)
   | TWait tm ->
     let (tmTyp, tmReq, tmCst) = typeCheck tm in
@@ -538,6 +542,7 @@ and applySubstSession (substitution : substitution) (examined : sessTyp)
 let substConstraint (substitution : substitution) (c : TypC.elt) : TypC.elt = 
   match c with
   | Unrestricted t -> Unrestricted (applySubst substitution t)
+  | C_Session t -> C_Session (applySubst substitution t)
   | Equal (t1, t2) -> Equal (applySubst substitution t1,
                              applySubst substitution t2)
 
@@ -555,7 +560,7 @@ let rec isUnrestr (constrTyp : typ) : bool option =
   | TypeVar _ -> None
   | Base _ -> Some true
   | Unit -> Some true
-  | Arrow (t1, t2) -> isUnrestr t1 &&? isUnrestr t2
+  | Arrow _ -> Some true
   | LinearArrow (t1, t2) -> (!? (isUnrestr t1)) &&? isUnrestr t2
   | Product (t1, t2) -> isUnrestr t1 &&? isUnrestr t2 
   | Sum (t1, t2) -> isUnrestr t1 &&? isUnrestr t2 
@@ -569,6 +574,37 @@ let isUnrestrWeak (constrTyp : typ) : bool =
 
 let linearityCheck (constraintSubjects : typ list) : typ list =
   List.filter isUnrestrWeak constraintSubjects
+
+let rec isSess (constrTyp : typ) : bool option =
+  match constrTyp with
+  | TypeVar _ -> None
+  | Product (_, _) -> Some false
+  | Sum (_, _) -> Some false
+  | Base _ -> Some false
+  | Arrow (_, _) -> Some false
+  | LinearArrow (_, _) -> Some false
+  | Unit -> Some false
+  | Session s -> 
+    (match s with
+    | Send (_, c) -> isSess c
+    | Receive (_, c) -> isSess c
+    | SendChoice _ -> raise (Errors.Type_error "Choice not implemented")
+    | OfferChoice _ -> raise (Errors.Type_error "Choice not implemented")
+    | SendEnd -> Some true
+    | ReceiveEnd -> Some true)
+  | Dual t ->
+    (match t with
+    | Session _ -> isSess t
+    | Dual dt -> isSess dt
+    | _ -> Some false)
+
+let isSessWeak (constrTyp : typ) : bool =
+  match isSess constrTyp with
+  | Some b -> b
+  | None -> false
+
+let sessionCheck (constraintSubjects : typ list) : typ list =
+  List.filter isSessWeak constraintSubjects
     
 let rec isClosed (t : typ) : bool =
   match t with
@@ -676,32 +712,70 @@ let rec unifyEqualities (constraintList : TypC.elt list)
                      (Errors.Type_error "Semantic unrestriction check failed")
         | None -> unifyEqualities tail
       )
+    | C_Session t -> (
+      match (isSess t) with
+      | Some true -> unifyEqualities tail
+      | Some false -> raise (Errors.Type_error "Semantic session check failed")
+      | None -> unifyEqualities tail
+      )
    )
 
-let reverseOrderUnrestricted (substitution : typConstraint) : bool =
+let reverseOrderUnary (substitution : typConstraint) : bool =
   match substitution with
   | Unrestricted _ -> false
+  | C_Session _ -> false
   | _ -> true
 
-let closeUnrestrictedSubsts (constr : typConstraint) 
-                            (substitutions : substitution list) : typ =
+let closeUnarySubsts (constr : typConstraint) 
+                     (substitutions : substitution list) : typConstraint =
   match constr with 
-  | Unrestricted typVar -> closeSubsts substitutions typVar
+  | Unrestricted typVar -> Unrestricted (closeSubsts substitutions typVar)
+  | C_Session typVar -> C_Session (closeSubsts substitutions typVar)
   | _ -> raise _UNIFICATION_ERROR_OTHER 
 
 let resolveConstraints (constraints : TypC.t) : substitution list =
   let constraintsList = TypC.elements constraints in
-  let (equalityList, unrestrictionList) = 
+  let (equalityList, unaryList) = 
     List.partition 
-    reverseOrderUnrestricted
+    reverseOrderUnary
     constraintsList in
   let unified = unifyEqualities equalityList in
-  let substituted = 
+  let substConstrs = 
     List.map 
-    (fun x -> closeUnrestrictedSubsts x unified)
-    unrestrictionList in
-  if (linearityCheck substituted) = substituted then unified
-  else raise _UNIFICATION_ERROR_OTHER
+    (fun x -> closeUnarySubsts x unified)
+    unaryList in
+  let (unrCstList, sessCstList) = 
+    List.partition 
+    (fun cst -> match cst with Unrestricted _ -> true | _ -> false)  
+    substConstrs in
+  let unrList = 
+    List.map 
+    (fun c -> match c with 
+              Unrestricted t -> t 
+              | _ -> raise (Errors.Type_error "A non-unrestrictedness constraint appeared where one is not expected.")
+    )
+    unrCstList in
+  let sessList = 
+    List.map 
+    (fun c -> match c with 
+              C_Session t -> t 
+              | _ -> raise (Errors.Type_error "A non-session constraint appeared where one is not expected.")
+    )
+    sessCstList in
+  let linearCorrect = (linearityCheck unrList) = unrList in
+  let sessCorrect = (sessionCheck sessList) = sessList in
+  if linearCorrect && sessCorrect then unified
+  else 
+    let fmt = Format.get_std_formatter () in
+    let pp_typList fmt tl = Format.pp_print_list ~pp_sep:Format.pp_print_space pp_typ fmt tl in
+    let _ = Format.fprintf fmt
+    "Unrestricted match: %b@.Sessions match: %b@.Unrestricted: %a@.Session: %a@.Unrestricted checked: %a@.Session checked: %a@."
+    linearCorrect sessCorrect
+    pp_typList unrList
+    pp_typList sessList
+    pp_typList (linearityCheck unrList)
+    pp_typList (sessionCheck sessList) in
+    raise _UNIFICATION_ERROR_OTHER
 
 let checkResolve (l : linearityBase) (tm : term) 
   : cctxOut * (substitution list) =
@@ -717,5 +791,5 @@ let pp_tcOut ?(verbose=false) (out : Format.formatter) ((t,c) : tcOut) =
   if verbose
   then Format.fprintf out "@[Term type:@.<%a>@.Under constraints:@.%a@]@."
                           pp_typ t pp_TypC c
-  else Format.fprintf out "@[Term type:@ <%a>@]" pp_typ t
+  else Format.fprintf out "@[Term type:@.<%a>@]" pp_typ t
 
