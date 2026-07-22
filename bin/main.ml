@@ -68,9 +68,9 @@ let secure_argument { lin_base_str = lb; verbosity = v;
     in_files = i; }
 
 (* Wrapper for type checking *)
-let typecheck_wrapper { lin_base = lb; verbosity = v; 
+let typecheck_wrapper { lin_base = lb; verbosity = _; 
                         out_file = o; in_files = i } : unit =
-  if i = [] then exit 2 else
+  if List.is_empty i then exit 2 else
   let parsed_files = List.map parse_file i in
   (* AST Debug Printing *)
   (* Uncomment when things get rough *)
@@ -78,12 +78,18 @@ let typecheck_wrapper { lin_base = lb; verbosity = v;
     (fun x -> Format.printf "@.The AST:@;@[%a@]@." CoreLang.Ast.pp_term x)
     parsed_files; *)
   let checked_files = List.map (bobTypecheck lb) parsed_files in
-  let final_string = Format.(
+  let out_string = 
+    List.map2 
+    (fun inFile checked -> 
+      Format.(asprintf "@[Typechecking results for %s: @[%a@]@]" inFile pp_tcOut checked)) 
+    i checked_files in
+  (* let final_string = Format.(
                      asprintf "@[Typecheck results:@;%a@]" 
                      (pp_print_list ~pp_sep:(fun ppf () -> 
                                              Format.fprintf ppf "@;") 
                        (pp_tcOut ~verbose:v))
-                     checked_files) in
+                     checked_files) in *)
+  let final_string = String.concat "\n" out_string in
   match o with
   | "" -> print_string final_string; exit 0
   | path -> 

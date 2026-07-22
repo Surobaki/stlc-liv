@@ -748,10 +748,9 @@ let bobTypecheck (l : linearityBase) (tm : term) : tcOut =
   (closeSubsts subst typ, cst)
 
 (* Utility function for pretty-printing type checker output *)
-let pp_tcOut ?(verbose=false) (out : Format.formatter) ((t,c) : tcOut) =
-  if verbose
-  then Format.fprintf out "@[Term type:@.<%a>@.Under constraints:@.%a@]@."
+let pp_tcOut (out : Format.formatter) ((t,c) : tcOut) =
+  Format.fprintf out "@[Term type:@.<%a>@.Under constraints:@.%a@]@."
                           pp_typ t pp_TypC c
-  else Format.fprintf out "@[Term type:@.<%a>@]" pp_typ t
+  (*Format.fprintf out "@[Term type:@.<%a>@]" pp_typ t*)
 
 
