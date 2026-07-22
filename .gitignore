@@ -92,3 +92,6 @@ lib/stlc_lexrules.ml
 
 # Direnv file
 .envrc
+
+# OPAM
+Ntextual.opam
