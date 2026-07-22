@@ -33,8 +33,6 @@ type typ = TypeVar of TyVar.t
 (* Session types *)
 and sessTyp = Send of typ * typ
             | Receive of typ * typ
-            | SendChoice of (label * typ) list
-            | OfferChoice of (label * typ) list
             | SendEnd
             | ReceiveEnd
 
@@ -54,13 +52,13 @@ type term =
   (* Simply Typed Lambda Calculus *)
   | TConstant of constTerm
   | TVariable of varName
-  | TAbstract of binder * typ * term
+  | TAbstract of binder * term
   | TApplication of term * term
   | TBinOp of binOp * term * term
   (* Extensions *)
   | TLet of binder * term * term
   | TIf of term * term * term
-  | TLinAbstract of binder * typ * term
+  | TLinAbstract of binder * term
   | TFix of term * typ
   (* Unit introduction and elimination *)
   | TUnit
@@ -76,10 +74,6 @@ type term =
   | TReceive of term
   | TFork of term
   | TWait of term
-  | TOffer of term * (label * binder * term) list
-           (* offer M in {l_i(x_i) |-> N_i} *)
-  | TSelect of label * term
-            (* select l in M *)
 
 type typConstraint = Unrestricted of typ 
 		   | C_Session of typ
@@ -145,22 +139,6 @@ and pp_sessTyp (out : Format.formatter) (s : sessTyp) =
                       pp_typ t pp_typ s' 
   | Receive (t, s') -> Format.fprintf out "?%a.%a"
                          pp_typ t pp_typ s' 
-  | SendChoice ss -> let (labels, typs) = partition2 ss in
-    Format.fprintf out "&<{%a:%a}>"
-      (Format.pp_print_list
-        ~pp_sep:(fun ppf () -> Format.fprintf ppf ",@ ")
-        pp_typ) typs
-      (Format.pp_print_list
-        ~pp_sep:(fun ppf () -> Format.fprintf ppf ",@ ")
-        Format.pp_print_string) labels
-  | OfferChoice ss -> let (labels, typs) = partition2 ss in
-    Format.fprintf out "⊕<{%a:%a}>"
-      (Format.pp_print_list
-        ~pp_sep:(fun ppf () -> Format.fprintf ppf ",@ ")
-        pp_typ) typs
-      (Format.pp_print_list
-        ~pp_sep:(fun ppf () -> Format.fprintf ppf ",@ ")
-        Format.pp_print_string) labels
   | SendEnd -> Format.fprintf out "end!"
   | ReceiveEnd -> Format.fprintf out "end?"
 
@@ -210,10 +188,9 @@ let rec pp_term (out : Format.formatter) (t : term) =
   match t with
   | TConstant c -> pp_constTerm out c
   | TVariable v -> pp_binder out v
-  | TAbstract (binder, typ, tm) -> 
-      Format.fprintf out "(LAM@ %a@ :@ %a@ .@ @[<hov 1>%a@])"
+  | TAbstract (binder, tm) -> 
+      Format.fprintf out "(LAM@ %a@ .@ @[<hov 1>%a@])"
       pp_binder binder
-      pp_typ typ
       pp_term tm
   | TApplication (tm1, tm2) -> 
       Format.fprintf out "(APP@ %a@ TO@ %a)"
@@ -232,10 +209,9 @@ let rec pp_term (out : Format.formatter) (t : term) =
       pp_term tmCnd
       pp_term tm1
       pp_term tm2
-  | TLinAbstract (binder, typ, tm) -> 
-      Format.fprintf out "(LLAM@ %a@ :@ %a@ .@ %a)"
+  | TLinAbstract (binder, tm) -> 
+      Format.fprintf out "(LLAM@ %a@ .@ %a)"
       pp_binder binder
-      pp_typ typ
       pp_term tm
   | TProduct (tm1, tm2) -> 
       Format.fprintf out "(PROD@ %a@ ,@ %a)"
@@ -266,12 +242,6 @@ let rec pp_term (out : Format.formatter) (t : term) =
       pp_term tmSubj
       pp_term tmSesh
   | TReceive tm -> Format.fprintf out "(RECEIVE@ %a)" pp_term tm
-  | TOffer (sessTm, tripleList) ->
-      pp_offer out sessTm tripleList
-  | TSelect (bind, tm) ->
-      Format.fprintf out "(SELECT@ %a@ FROM@ %a)"
-      Format.pp_print_string bind
-      pp_term tm
   | TFork tm -> Format.fprintf out "(FORK@ %a)" pp_term tm
   | TWait tm -> Format.fprintf out "(WAIT@ %a)" pp_term tm
   | TBinOp (op, tm1, tm2) -> 

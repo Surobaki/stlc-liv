@@ -31,16 +31,15 @@ let args_specification =
 
 (* Rudimentary data validation *)
 let secure_base (b : string) : linearityBase =
-  match b with
-  | "l" | "lin" | "linear" -> B_Linear
-  | "m" | "mix" | "mixed" -> B_Mixed
-  | "u" | "unr" | "unrestricted" -> B_Unrestricted
-  | _ -> raise _ERR_UNREC_BASE
+  let trim base = String.sub base 0 (String.length b) in
+  if String.equal b (trim "linear") then B_Linear
+  else if String.equal b (trim "mixed") then B_Mixed
+  else if String.equal b (trim "unrestricted") then B_Unrestricted
+  else raise _ERR_UNREC_BASE
 
 let secure_filepath (p : string) : string =
-  if Sys.file_exists p 
-  then p
-  else (Format.eprintf "Error: cannot find path %s" p; "")
+  if Sys.file_exists p then p
+  else (raise (Invalid_argument (Format.sprintf "Error: cannot find path %s" p)))
 
 let _secure_filepaths (ps : string list) : string list =
   List.map secure_filepath ps
@@ -61,9 +60,12 @@ type safe_arguments = {
 
 let secure_argument { lin_base_str = lb; verbosity = v; 
                        out_file = _o; in_files = i } : safe_arguments =
+  let new_out = (match _o with
+  | "" -> ""
+  | path -> secure_filepath path) in
   { lin_base = secure_base lb; verbosity = v;
-    out_file = "";
-    in_files = [List.hd i]; }
+    out_file = new_out;
+    in_files = i; }
 
 (* Wrapper for type checking *)
 let typecheck_wrapper { lin_base = lb; verbosity = v; 

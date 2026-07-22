@@ -1,0 +1,1 @@
+let s = fork (\s . send true s) in let (b, s) = receive s in (wait s); b

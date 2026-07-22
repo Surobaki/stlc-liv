@@ -48,6 +48,14 @@ type tcOut = typ * TypC.t
 (* Type presets for easy input. *)
 type linearityBase = B_Linear | B_Mixed | B_Unrestricted
 type mergeType = M_Sequential | M_Branching
+
+let pp_linearityBase (ppf : Format.formatter) (lb : linearityBase) = 
+  let stringBase = 
+    (match lb with 
+    | B_Linear -> "BaseLinear" 
+    | B_Mixed -> "BaseMixed" 
+    | B_Unrestricted -> "BaseUnrestricted") in
+  Format.fprintf ppf "%s" stringBase
     
 (* *)
 (* Auxiliary functions. *)
@@ -300,23 +308,25 @@ let rec ccTc (l : linearityBase) (tm : term)
     let (tmMergeReq, tmMergeCst) = mergeSequence tm1Req tm2Req in
     let tmCst = tm1Cst %+ tm2Cst %+ tmMergeCst in
     (Product (tm1Typ, tm2Typ), tmMergeReq, tmCst)
-  | TAbstract (bind, bndTyp, tm') ->
+  | TAbstract (bind, tm') ->
     let (tm'search, tm'Req, tm'Cst) = 
       typeCheck tm' in
     let (newTyp, bndCst) = checkVariable bind tm'Req in
-    let correlatedCst = (%*) (Equal (bndTyp, newTyp)) in
+    let freshTyp = TypeVar (TyVar.fresh ()) in
+    let correlatedCst = (%*) (Equal (freshTyp, newTyp)) in
+    let ctxUnrCst = genUnrestricted (tm'Req /< bind) in (* Do NOT generate unrestricted for your binder!!! *)
+    let outCst = tm'Cst %+ bndCst %+ ctxUnrCst %+ correlatedCst in
+    let outReq = tm'Req /< bind in
+    (Arrow (freshTyp, tm'search), outReq, outCst)
+  | TLinAbstract (bind, tm') ->
+    let (tm'search, tm'Req, tm'Cst) = 
+      typeCheck tm' in
+    let (newTyp, bndCst) = checkVariable bind tm'Req in
+    let freshTyp = TypeVar (TyVar.fresh ()) in
+    let correlatedCst = (%*) (Equal (newTyp, freshTyp)) in
     let outCst = tm'Cst %+ bndCst %+ correlatedCst in
     let outReq = tm'Req /< bind in
-    (Arrow (bndTyp, tm'search), outReq, outCst)
-  | TLinAbstract (bind, bndTyp, tm') ->
-    let (tm'search, tm'Req, tm'Cst) = 
-      typeCheck tm' in
-    let (newTyp, bndCst) = checkVariable bind tm'Req in
-    let correlatedCst = (%*) (Equal (newTyp, bndTyp)) in
-    let ctxLinCst = genUnrestricted tm'Req in
-    let outCst = tm'Cst %+ bndCst %+ ctxLinCst %+ correlatedCst in
-    let outReq = tm'Req /< bind in
-    (LinearArrow (bndTyp, tm'search), outReq, outCst)
+    (LinearArrow (freshTyp, tm'search), outReq, outCst)
   | TApplication (tm1, tm2) ->
     let (tm1Typ, tm1Req, tm1Cst) = 
       typeCheck tm1 in
@@ -410,31 +420,6 @@ let rec ccTc (l : linearityBase) (tm : term)
     let fixedCst2 = (%*) (C_Session freshSesh) in
     let outCst = tmCst %+ fixedCst1 %+ fixedCst2 in
     (Product (receivedFresh, freshSesh), tmReq, outCst)
-  | TOffer (coreTm, offerList) ->
-    let brNMerge = merge M_Branching l in
-    let (labels, contBinders, tmContinuations) = partition3 offerList in
-    let (tmTyp, tmReq, tmCst) = typeCheck coreTm in
-    let (tmTyps, tmReqs, tmCstsList) = partition3 @@ List.map typeCheck 
-                                                          tmContinuations in
-    let tmCsts = TypC.union_many tmCstsList in
-    let (checkTyps, checkCst) = nCheck l contBinders tmReqs in
-    let (brReq, brCst) = brNMerge @@ List.map (fun (sess, req) -> req /< sess) 
-                                     (List.combine contBinders tmReqs) in 
-    let (outReq, seqCst) = mergeSequence tmReq brReq in
-    let outCst = seqCst %+ tmCst %+ brCst %+ checkCst %+ tmCsts 
-                 %+ (allEq tmTyps) 
-                 %+ (%*) (Equal (tmTyp, Session (SendChoice (List.combine labels checkTyps)))) in
-    let outTyp = List.nth tmTyps 0 in
-    (outTyp, outReq, outCst)
-  | TSelect (label, sessTm) ->
-    let (tmTyp, tmReq, tmCst) = typeCheck sessTm in
-    let contTy = TypeVar (TyVar.fresh ()) in
-    let outCst = tmCst %+ 
-                 (%*) (Equal (tmTyp, 
-                              Session (OfferChoice ((label, contTy) :: []))
-                             )
-                       ) in
-    (tmTyp, tmReq, outCst)
   | TFork tm ->
     let (tmTyp, tmReq, tmCst) = typeCheck tm in
     let receivedSesh = TypeVar (TyVar.fresh ()) in
@@ -492,8 +477,6 @@ and occursCheckSess (t : typ) (checkSubject : sessTyp) : bool =
     (match checkSubject with
     | Send (head, Session cont) | Receive (head, Session cont) -> head = t 
                                                   || occursCheckSess t cont
-    | SendChoice s | OfferChoice s -> 
-      List.exists (occursCheck t) (List.map (fun (_, el) -> el) s)
     | _ -> false)
   | _ -> false
     
@@ -522,20 +505,6 @@ and applySubstSession (substitution : substitution) (examined : sessTyp)
                              applySubst substitution cont)
   | Receive (t, cont) -> Receive (applySubst substitution t, 
                              applySubst substitution cont)
-  | SendChoice ss -> 
-    SendChoice 
-      (List.fold_right
-         (fun (vName, typ) acc -> 
-            let sess = recoverSession typ in
-            (vName, Session (applySubstSession substitution sess)) :: acc) 
-         ss [])
-  | OfferChoice ss ->
-    OfferChoice 
-      (List.fold_right
-         (fun (vName, typ) acc -> 
-            let sess = recoverSession typ in
-            (vName, Session (applySubstSession substitution sess)) :: acc) 
-         ss [])
   | SendEnd -> SendEnd
   | ReceiveEnd -> ReceiveEnd
 
@@ -588,8 +557,6 @@ let rec isSess (constrTyp : typ) : bool option =
     (match s with
     | Send (_, c) -> isSess c
     | Receive (_, c) -> isSess c
-    | SendChoice _ -> raise (Errors.Type_error "Choice not implemented")
-    | OfferChoice _ -> raise (Errors.Type_error "Choice not implemented")
     | SendEnd -> Some true
     | ReceiveEnd -> Some true)
   | Dual t ->
@@ -618,8 +585,6 @@ and isClosedSess (s : sessTyp) : bool =
     | Session s2 -> isClosed t1 && isClosedSess s2
     | _ -> 
       raise (Errors.Type_error "Cannot determine continuation of session to be session-typed."))
-  | SendChoice ss | OfferChoice ss ->
-      List.for_all isClosedSess (List.map (fun (_, t) -> recoverSession t) ss)
   | SendEnd | ReceiveEnd -> true
 
 let rec dualiseSess (t : sessTyp) : sessTyp =
@@ -630,8 +595,6 @@ let rec dualiseSess (t : sessTyp) : sessTyp =
   | Receive (p, TypeVar id) -> Send (p, Dual (TypeVar id))
   | Send (_, _) | Receive (_, _) -> 
     raise (Errors.Type_error "Non-session continuation.")
-  | SendChoice _ | OfferChoice _ -> 
-    raise (Errors.Type_error "Choice not implemented.")
   | SendEnd -> ReceiveEnd
   | ReceiveEnd -> SendEnd
 
@@ -684,8 +647,6 @@ let rec unifyEqualities (constraintList : TypC.elt list)
           unifyEqualities (Equal (headTyp1, headTyp2) 
                           :: Equal (contTyp1, contTyp2) :: tail)
         | SendEnd, SendEnd | ReceiveEnd, ReceiveEnd -> unifyEqualities tail
-        | OfferChoice _, OfferChoice _ | SendChoice _, SendChoice _ ->
-          raise (Errors.Type_error "Branching choice unification has not been implemented yet due to subtyping.")
         | st1, st2 -> 
           raise (Errors.Type_error 
 	  (Format.asprintf
@@ -792,4 +753,5 @@ let pp_tcOut ?(verbose=false) (out : Format.formatter) ((t,c) : tcOut) =
   then Format.fprintf out "@[Term type:@.<%a>@.Under constraints:@.%a@]@."
                           pp_typ t pp_TypC c
   else Format.fprintf out "@[Term type:@.<%a>@]" pp_typ t
+
 

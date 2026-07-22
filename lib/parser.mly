@@ -1,6 +1,5 @@
 %{
   open Ast
-  open List
 %}
 (* Tokens *)
 (* Primitive variable tokens *)
@@ -65,10 +64,10 @@
 expr:
   (* Lam *)
   | LAMBDA v = VARIABLE DOT e = expr
-    { TAbstract (v, TypeVar (TyVar.fresh ()), e) }
+    { TAbstract (v, e) }
   (* LinLam *)
-  | LAMBDA v = VARIABLE COLON AT t = ty DOT e = expr
-    { TLinAbstract (v, t, e) }
+  | LAMBDA v = VARIABLE DOT AT e = expr
+    { TLinAbstract (v, e) }
   (* Unit introduction *)
   | LPAREN RPAREN { TUnit }
   (* App *)
@@ -103,20 +102,6 @@ expr:
   | RECEIVE e = expr { TReceive e }
   | FORK e = fact { TFork e }
   | WAIT e = fact { TWait e }
-  | OFFER o = expr LBRACE l1 = VARIABLE LPAREN s1 = VARIABLE RPAREN ARROW 
-                            e1 = expr COMMA
-                          l2 = VARIABLE LPAREN s2 = VARIABLE RPAREN ARROW 
-                            e2 = expr cont = offer_cont
-    { let combinedList = ((l1, s1, e1) :: (l2, s2, e2) :: cont) in
-      TOffer (o, combinedList) }
-  | SELECT l = VARIABLE e = expr { TSelect (l, e) }
-
-(* Offer continuation that either produces `}` to end a 2-element offer,
-   or produces an n+1 element offer with another continuation call. *)
-offer_cont:
-  | RBRACE { [] }
-  | COMMA l3 = VARIABLE LPAREN v3 = VARIABLE RPAREN 
-      ARROW e3 = expr cont = offer_cont { (l3, v3, e3) :: cont } 
 
 operator: 
   | LANGLE { Lt } | LE     { Le } 
@@ -157,12 +142,6 @@ sess_ty:
   | ENDQUERY { ReceiveEnd }
   | BANG t1 = ty DOT t2 = ty { Send (t1, t2) }
   | QSTNMARK t1 = ty DOT t2 = ty { Receive (t1, t2) }
-  | LPAREN PLUS RPAREN LBRACE l1 = VARIABLE COLON t1 = sess_ty 
-    cont = sess_ty_cont
-    { SendChoice ((l1, Session t1) :: cont) }
-  | LPAREN AMPERSAND RPAREN LBRACE l1 = VARIABLE COLON t1 = sess_ty 
-    cont = sess_ty_cont
-    { OfferChoice ((l1, Session t1) :: cont) }
 
 sess_ty_cont:
   | RBRACE { [] }

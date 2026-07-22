@@ -1,0 +1,13 @@
+let server = (\userbalance . \session .
+  let (pin, session) = receive session in
+  if pin == 2323
+  then
+    let session = select authenticated session in
+    offer session 
+      { withdraw(wSess) -> let (amount, wSess) = receive wSess in
+                           send amount wSess,
+        balance(bSess) -> send userbalance bSess,
+        quit(qSess) -> qSess }
+  else select wrongPIN session) in
+server
+
