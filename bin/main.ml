@@ -5,9 +5,7 @@ open Out_channel
 open Cmdliner
        
 let _ERR_NO_FILE = Runtime_error "Missing input files."
-let _ERR_UNREC_BASE = Runtime_error {|Unrecognised linearity base. 
-                                      Try one of the following: 
-                                      lin ; mix ; unr"|}
+let _ERR_UNREC_BASE = Runtime_error "Unrecognised linearity base. Try one of the following: 'lin ; mix ; unr'."
 
 (* Rudimentary data validation *)
 let secure_base (b : string) : linearityBase =
@@ -16,7 +14,6 @@ let secure_base (b : string) : linearityBase =
   else if String.equal b (trim "mixed") then B_Mixed
   else if String.equal b (trim "unrestricted") then B_Unrestricted
   else raise _ERR_UNREC_BASE
-
 
 let base_argument =
   let parser s = 
@@ -52,7 +49,7 @@ let typecheck_wrapper ((lb, o, i) : (linearityBase * string * string list)) : in
   let out_string = 
     List.map2 
     (fun inFile checked -> 
-      Format.(asprintf "@[Typechecking results for %s: @[%a@]@]" inFile pp_tcOut checked)) 
+      Format.(asprintf "@[Typechecking results for %s:@.@[%a@]@]" inFile pp_tcOut checked)) 
     i checked_files in
   let final_string = String.concat "\n" out_string in
   match o with
