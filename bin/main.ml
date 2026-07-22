@@ -2,32 +2,12 @@ open CoreLang.Errors
 open CoreLang.Cctx_typechecker
 open CoreLang.Parse_wrapper
 open Out_channel
+open Cmdliner
        
 let _ERR_NO_FILE = Runtime_error "Missing input files."
 let _ERR_UNREC_BASE = Runtime_error {|Unrecognised linearity base. 
                                       Try one of the following: 
                                       lin ; mix ; unr"|}
-
-(* Argument parsing specification *)
-let usage_message = "tc [-base <linearitybase>] [-verbose] <inputfile1> [<inputfile2 [...]] [-o <outputfile>]"
-
-let arg_linearity_base = ref ""
-let arg_verbose = ref false
-let arg_input_file = ref []
-let arg_output_file = ref ""
-    
-let anon_fun input = arg_input_file := input :: !arg_input_file
-    
-let args_specification = 
-  [("-base", 
-    Arg.Set_string arg_linearity_base, 
-    "Set linearity base: lin[ear] | mix[ed] | unr[estricted].");
-   ("-verbose", 
-    Arg.Set arg_verbose, 
-    "Increase verbosity level.");
-   ("-o",
-    Arg.Set_string arg_output_file,
-    "Set output file.")]
 
 (* Rudimentary data validation *)
 let secure_base (b : string) : linearityBase =
@@ -37,39 +17,30 @@ let secure_base (b : string) : linearityBase =
   else if String.equal b (trim "unrestricted") then B_Unrestricted
   else raise _ERR_UNREC_BASE
 
-let secure_filepath (p : string) : string =
-  if Sys.file_exists p then p
-  else (raise (Invalid_argument (Format.sprintf "Error: cannot find path %s" p)))
 
-let _secure_filepaths (ps : string list) : string list =
-  List.map secure_filepath ps
+let base_argument =
+  let parser s = 
+    try
+      Ok (secure_base s)
+    with _ERR_UNREC_BASE -> 
+      Error "Could not parse substructural base."
+  in
+  Arg.Conv.make ~docv:"BASE" ~parser ~pp:pp_linearityBase ()
+  
+let lin_base =
+  let doc = "Typecheck in $(docv) mode. Default mixed." in
+  Arg.(value & opt base_argument B_Mixed & info ["b"; "base"] ~doc ~docv:"mix|lin|unr")
 
-type unsafe_arguments = {
-  lin_base_str : string;
-  verbosity : bool;
-  out_file : string;
-  in_files : string list
-}
+let output_file =
+  let doc = "Write output to $(docv)." in
+  Arg.(value & opt filepath "" & info ["o"; "outfile"] ~doc ~docv:"OUTFILE")
 
-type safe_arguments = {
-  lin_base : linearityBase;
-  verbosity : bool;
-  out_file : string;
-  in_files : string list
-}
-
-let secure_argument { lin_base_str = lb; verbosity = v; 
-                       out_file = _o; in_files = i } : safe_arguments =
-  let new_out = (match _o with
-  | "" -> ""
-  | path -> secure_filepath path) in
-  { lin_base = secure_base lb; verbosity = v;
-    out_file = new_out;
-    in_files = i; }
+let input_files = 
+  let doc = "Read input from $(docv)." in
+  Arg.(value & pos_all filepath [] & info [] ~doc ~docv:"INFILE")
 
 (* Wrapper for type checking *)
-let typecheck_wrapper { lin_base = lb; verbosity = _; 
-                        out_file = o; in_files = i } : unit =
+let typecheck_wrapper ((lb, o, i) : (linearityBase * string * string list)) : int =
   if List.is_empty i then exit 2 else
   let parsed_files = List.map parse_file i in
   (* AST Debug Printing *)
@@ -83,29 +54,20 @@ let typecheck_wrapper { lin_base = lb; verbosity = _;
     (fun inFile checked -> 
       Format.(asprintf "@[Typechecking results for %s: @[%a@]@]" inFile pp_tcOut checked)) 
     i checked_files in
-  (* let final_string = Format.(
-                     asprintf "@[Typecheck results:@;%a@]" 
-                     (pp_print_list ~pp_sep:(fun ppf () -> 
-                                             Format.fprintf ppf "@;") 
-                       (pp_tcOut ~verbose:v))
-                     checked_files) in *)
   let final_string = String.concat "\n" out_string in
   match o with
-  | "" -> print_string final_string; exit 0
+  | "" -> print_string final_string; 0
   | path -> 
     let channel = open_gen [Open_wronly; Open_creat] 0o664 path in
-    output_string channel final_string; close channel; exit 0
-  
-(* Entry point *)
-let () = Arg.parse args_specification anon_fun usage_message;
-         let unsafe_args = { lin_base_str = !arg_linearity_base; 
-                             verbosity = !arg_verbose; 
-                             out_file = !arg_output_file; 
-                             in_files = !arg_input_file } in
-         let args = unsafe_args.in_files in
-         Format.printf "@[Arg count: %d,@ args: [%a]@]@." 
-           (List.length args)
-           (Format.pp_print_list Format.pp_print_string) args;
+    output_string channel final_string; close channel; 0
 
-         let safe_args = secure_argument unsafe_args in
-         typecheck_wrapper safe_args
+let typecheck_term = Term.(
+  const typecheck_wrapper $ 
+    (const (fun lb oof iif -> (lb, oof, iif)) $ lin_base $ output_file $ input_files)
+  )
+
+let typecheck_command = 
+  Cmd.make (Cmd.info "Typecheck one or more terms.") typecheck_term
+
+let main () = Cmd.eval' typecheck_command
+let () = if !Sys.interactive then () else exit (main ())

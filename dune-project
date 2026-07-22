@@ -22,6 +22,7 @@
    (ocaml (>= 5.3))
    dune
    menhir
+   cmdliner
    )
  (tags
   (topics pl pldi stlc "lambda calculus" typechecker interpreter)))
