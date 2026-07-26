@@ -46,7 +46,7 @@ type tcOut = typ * TypC.t
                                                         
 (* *)
 (* Type presets for easy input. *)
-type linearityBase = B_Linear | B_Mixed | B_Unrestricted
+type linearityBase = B_Linear | B_Mixed | B_Unrestricted | B_Affine | B_Relevant
 type mergeType = M_Sequential | M_Branching
 
 let pp_linearityBase (ppf : Format.formatter) (lb : linearityBase) = 
@@ -54,7 +54,9 @@ let pp_linearityBase (ppf : Format.formatter) (lb : linearityBase) =
     (match lb with 
     | B_Linear -> "BaseLinear" 
     | B_Mixed -> "BaseMixed" 
-    | B_Unrestricted -> "BaseUnrestricted") in
+    | B_Unrestricted -> "BaseUnrestricted"
+    | B_Affine -> "BaseAffine"
+    | B_Relevant -> "BaseRelevant") in
   Format.fprintf ppf "%s" stringBase
     
 (* *)
@@ -214,12 +216,16 @@ let rec merge (m : mergeType) (l : linearityBase) (inp : typCtx list)
       (match l with 
       | B_Linear -> linSeqMerge
       | B_Mixed -> mixSeqMerge
-      | B_Unrestricted -> unrMerge)
+      | B_Unrestricted -> unrMerge
+      | B_Affine -> linSeqMerge
+      | B_Relevant -> unrMerge)
     | M_Branching -> 
       (match l with 
       | B_Linear -> linBrMerge 
       | B_Mixed -> mixBrMerge 
-      | B_Unrestricted -> unrMerge) in
+      | B_Unrestricted -> unrMerge
+      | B_Affine -> unrMerge
+      | B_Relevant -> linBrMerge) in
   match inp with
   | [] -> (TypR.empty, (%.))
   | inp :: [] -> (inp, (%.))
@@ -258,7 +264,9 @@ let nCheck (l : linearityBase) (binds : binder list) (ctxs : typCtx list)
   let checkFn (l : linearityBase) = match l with 
                                     | B_Linear -> linCheck 
                                     | B_Mixed -> mixCheck 
-                                    | B_Unrestricted -> unrCheck in
+                                    | B_Unrestricted -> unrCheck
+                                    | B_Affine -> unrCheck
+                                    | B_Relevant -> linCheck in
   let typsAndCsts = List.fold_right (fun (bind, ctx) acc -> 
                                       (checkFn l bind ctx) :: acc) 
                                     combined [] in
@@ -280,7 +288,9 @@ let rec ccTc (l : linearityBase) (tm : term)
   let (mergeBranch, mergeSequence, checkVariable) = match l with 
                     | B_Linear -> (linBrMerge, linSeqMerge, linCheck) 
                     | B_Mixed -> (mixBrMerge, mixSeqMerge, mixCheck) 
-                    | B_Unrestricted -> (unrMerge, unrMerge, unrCheck) in
+                    | B_Unrestricted -> (unrMerge, unrMerge, unrCheck)
+                    | B_Affine -> (unrMerge, linSeqMerge, unrCheck)
+                    | B_Relevant -> (linBrMerge, unrMerge, linCheck) in
   match tm with
   | TConstant (CInteger _) -> 
       (Base Integer, TypR.empty, TypC.empty)

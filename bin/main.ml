@@ -13,6 +13,8 @@ let secure_base (b : string) : linearityBase =
   if String.equal b (trim "linear") then B_Linear
   else if String.equal b (trim "mixed") then B_Mixed
   else if String.equal b (trim "unrestricted") then B_Unrestricted
+  else if String.equal b (trim "affine") then B_Affine
+  else if String.equal b (trim "relevant") then B_Relevant
   else raise _ERR_UNREC_BASE
 
 let base_argument =
@@ -25,8 +27,8 @@ let base_argument =
   Arg.Conv.make ~docv:"BASE" ~parser ~pp:pp_linearityBase ()
   
 let lin_base =
-  let doc = "Typecheck in $(docv) mode. Default mixed." in
-  Arg.(value & opt base_argument B_Mixed & info ["b"; "base"] ~doc ~docv:"mix|lin|unr")
+  let doc = "Typecheck in $(docv) substructural mode. Accepts (a substring of) mixed, linear, unrestricted, affine, relevant." in
+  Arg.(value & opt base_argument B_Mixed & info ["b"; "base"] ~doc ~docv:"BASE")
 
 let output_file =
   let doc = "Write output to $(docv)." in
