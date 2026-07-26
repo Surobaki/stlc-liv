@@ -22,7 +22,7 @@ let base_argument =
     try
       Ok (secure_base s)
     with _ERR_UNREC_BASE -> 
-      Error "Could not parse substructural base."
+      Error "Could not parse substructural base. Try one of the following: [mix;lin;unr;aff;rel]."
   in
   Arg.Conv.make ~docv:"BASE" ~parser ~pp:pp_linearityBase ()
   
