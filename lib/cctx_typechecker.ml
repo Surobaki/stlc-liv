@@ -617,6 +617,8 @@ let dualiseTy (t : typ) : typ =
     | _ -> raise (Errors.Type_error "Dualisation of non-session."))
   | _ -> raise (Errors.Type_error "Expected dual type.")
 
+(* *)
+(* The unification algorithm. *)
 let rec unifyEqualities (constraintList : TypC.elt list) 
                                  : substitution list =
   match constraintList with
