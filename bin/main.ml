@@ -47,7 +47,7 @@ let typecheck_wrapper ((lb, o, i) : (linearityBase * string * string list)) : in
   (* List.iter
     (fun x -> Format.printf "@.The AST:@;@[%a@]@." CoreLang.Ast.pp_term x)
     parsed_files; *)
-  let checked_files = List.map (bobTypecheck lb) parsed_files in
+  let checked_files = List.map (finalCheck lb) parsed_files in
   let out_string = 
     List.map2 
     (fun inFile checked -> 

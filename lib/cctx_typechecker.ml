@@ -753,7 +753,7 @@ let checkResolve (l : linearityBase) (tm : term)
   let (_, _, cst) as out = ccTc l tm in  
   (out, resolveConstraints cst)
 
-let bobTypecheck (l : linearityBase) (tm : term) : tcOut =
+let finalCheck (l : linearityBase) (tm : term) : tcOut =
   let ((typ, _, cst), subst) = checkResolve l tm in
   (closeSubsts subst typ, cst)
 
