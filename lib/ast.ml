@@ -99,6 +99,10 @@ module TypR = Map.Make (struct
     type t = binder
     let compare e1 e2 = String.compare e1 e2
   end)
+
+(* This function exists for compatibility with OCaml < 5.1 *)
+let of_list_compat (l : (TypR.key * 'a) list) : 'a TypR.t =
+  List.fold_right (fun (k, v) acc -> TypR.add k v acc) l TypR.empty 
     
 (* Auxiliary Functions *)
 let partition2 (_input : ('a * 'b) list) : ('a list) * ('b list) =
@@ -150,7 +154,7 @@ let pp_typConstraint (out : Format.formatter) (c : typConstraint) =
   | C_Session t -> Format.fprintf out "S(%a)" pp_typ t
 
 let pp_TypC (out : Format.formatter) (c : TypC.t) =
-  let c_list = TypC.to_list c in
+  let c_list = TypC.elements c in
   Format.fprintf out "{%a}" 
     (Format.(pp_print_list 
       ~pp_sep:(fun ppf () -> 
@@ -161,7 +165,7 @@ let pp_typBinding (out : Format.formatter) ((s, t) : string * typ) =
   Format.fprintf out "%s@ ↦@ %a" s pp_typ t
 
 let pp_TypR (out : Format.formatter) (r : typ TypR.t) =
-  let r_list = TypR.to_list r in
+  let r_list = TypR.bindings r in
   Format.pp_print_list
     ~pp_sep:(fun ppf () -> Format.fprintf ppf ",@ ") 
     pp_typBinding

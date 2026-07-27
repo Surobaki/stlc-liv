@@ -133,7 +133,7 @@ let linBrMerge (req1 : typCtx)
                                   raise _LINMERGE_DIFFERING_BRANCH
                                 | _ -> raise _MERGE_EMPTY_VALUES)
                                      req1 req2) in
-  let fixedUpMerge = TypR.of_list (List.map (fun (key, (reqs, _)) ->
+  let fixedUpMerge = of_list_compat (List.map (fun (key, (reqs, _)) ->
                                                  (key, reqs))
                                             malformedMerge) in
   let extraConstraints = List.fold_left 
@@ -236,7 +236,7 @@ let rec merge (m : mergeType) (l : linearityBase) (inp : typCtx list)
     (req12t, outCst)
 
 let genUnrestricted (ctx : typCtx) : TypC.t =
-  TypC.of_list (List.map (fun (_, typ) -> Unrestricted typ) (TypR.to_list ctx))
+  TypC.of_list (List.map (fun (_, typ) -> Unrestricted typ) (TypR.bindings ctx))
 
 (* *)
 (* Check operations *)
@@ -737,7 +737,7 @@ let resolveConstraints (constraints : TypC.t) : substitution list =
   let sessCorrect = (sessionCheck sessList) = sessList in
   if linearCorrect && sessCorrect then unified
   else 
-    let fmt = Format.get_std_formatter () in
+    let fmt = Format.std_formatter in
     let pp_typList fmt tl = Format.pp_print_list ~pp_sep:Format.pp_print_space pp_typ fmt tl in
     let _ = Format.fprintf fmt
     "Unrestricted match: %b@.Sessions match: %b@.Unrestricted: %a@.Session: %a@.Unrestricted checked: %a@.Session checked: %a@."

@@ -40,7 +40,7 @@ let input_files =
 
 (* Wrapper for type checking *)
 let typecheck_wrapper ((lb, o, i) : (linearityBase * string * string list)) : int =
-  if List.is_empty i then exit 2 else
+  if List.compare_length_with i 0 = 0 then exit 2 else
   let parsed_files = List.map parse_file i in
   (* AST Debug Printing *)
   (* Uncomment when things get rough *)
