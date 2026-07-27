@@ -51,7 +51,7 @@ let typecheck_wrapper ((lb, o, i) : (linearityBase * string * string list)) : in
   let out_string = 
     List.map2 
     (fun inFile checked -> 
-      Format.(asprintf "@[Typechecking results for %s:@.@[%a@]@]" inFile pp_tcOut checked)) 
+      Format.(asprintf "@[Typechecking results for %s in %a:@.@[%a@]@]" inFile pp_linearityBase lb pp_tcOut checked)) 
     i checked_files in
   let final_string = String.concat "\n" out_string in
   match o with
