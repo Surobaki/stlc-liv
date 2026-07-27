@@ -93,7 +93,7 @@ The `tcp` test simulates a TCP handshake and uses dummy functions. Since the dum
 All the code for the programming language with typechecker can be found in `artifact/lib` and `artifact/bin`. In `artifact/bin` is just the CLI frontend, while `artifact/lib` contains most of the work. We will continue by omitting the prefix `artifact/`.
 
 > [!TIP]
-> If you make changes to `Artifact` (upper-case), the changes will not propagate to your Docker container until you rebuild the image and start a new container based on it.
+> If you make changes to `Artifact` (upper-case, on your host machine), the changes will not propagate to your Docker container until you rebuild the image and start a new container based on it.
 
 The core language definitions like terms and types are in `lib/ast.ml`. The full pipeline from typechecking through unification is in `lib/cctx_typechecker.ml`. The lexer, written using `ocamllex`, arises from `lib/lexer.mll`. The parser, written using `menhir`, arises from `lib/parser.mly`. To use in the frontend, parsing is wrapped with helper functions in `lib/parse_wrapper.ml`.
 
