@@ -113,7 +113,7 @@ let linSeqMerge (req1 : typCtx)
                                   raise _LINMERGE_VARIABLE_REUSE
                                 | _ -> raise _MERGE_EMPTY_VALUES)
                                      req1 req2) in
-  let fixedUpMerge = TypR.of_list (List.map (fun (key, (reqs, _)) ->
+  let fixedUpMerge = of_list_compat (List.map (fun (key, (reqs, _)) ->
                                                  (key, reqs))
                                             malformedMerge) in
   let extraConstraints = List.fold_left 
@@ -153,7 +153,7 @@ let unrMerge (req1 : typCtx)
                                 | (None, Some typ2) -> Some (typ2, (%.))
                                 | _ -> raise _MERGE_EMPTY_VALUES)
                                      req1 req2) in
-  let fixedUpMerge = TypR.of_list (List.map (fun (key, (reqs, _)) -> 
+  let fixedUpMerge = of_list_compat (List.map (fun (key, (reqs, _)) -> 
                                                  (key, reqs)) 
                                             malformedMerge) in
   let extraConstraints = List.fold_left 
@@ -175,7 +175,7 @@ let mixSeqMerge (req1 : typCtx)
       | (None, Some typ2) -> Some (typ2, (%.))
       | _ -> raise _MERGE_EMPTY_VALUES)
            req1 req2) in
-  let fixedUpMerge = TypR.of_list (List.map (fun (key, (reqs, _)) -> 
+  let fixedUpMerge = of_list_compat (List.map (fun (key, (reqs, _)) -> 
                                                  (key, reqs)) 
                                             malformedMerge) in
   let extraConstraints = List.fold_left 
@@ -196,7 +196,7 @@ let mixBrMerge (req1 : typCtx)
         Some (typ, (%*) (Unrestricted typ))
       | _ -> raise _MERGE_EMPTY_VALUES)
     req1 req2) in
-  let fixedUpMerge = TypR.of_list 
+  let fixedUpMerge = of_list_compat 
                      (List.map (fun (key, (reqs, _)) ->
                        (key, reqs))
                      malformedMerge) in
