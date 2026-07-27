@@ -9,12 +9,11 @@
 
 (* Parentheses *)
 %token LPAREN RPAREN
-%token LBRACE RBRACE
 
 (* Type construction grammar *)
 %token TYINT TYBOOL UNIT
 %token ARROW LOLLI
-%token BANG QSTNMARK AMPERSAND
+%token BANG QSTNMARK
 %token COLON DOT
 %token ENDBANG ENDQUERY
 %token LANGLE RANGLE
@@ -35,7 +34,6 @@
 (* Session typing constructions *)
 %token SEND RECEIVE
 %token FORK WAIT
-%token OFFER SELECT
 %token TILDE
 
 (* Arithmetic and relational binary_operations, 
@@ -54,7 +52,6 @@
 %type <binOp> operator
 %type <typ> ty base_ty
 %type <sessTyp> sess_ty
-%type <(string * typ) list> sess_ty_cont
 
 (* Start parsing *)
 %start <term> expr_main
@@ -143,11 +140,6 @@ sess_ty:
   | BANG t1 = ty DOT t2 = ty { Send (t1, t2) }
   | QSTNMARK t1 = ty DOT t2 = ty { Receive (t1, t2) }
 
-sess_ty_cont:
-  | RBRACE { [] }
-  | COMMA l2 = VARIABLE COLON t2 = sess_ty cont = sess_ty_cont 
-    { (l2, Session t2) :: cont }
-				  
 base_ty:
   | TYINT  { Base Integer }
   | TYBOOL { Base Boolean }
