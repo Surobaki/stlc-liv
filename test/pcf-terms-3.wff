@@ -1,5 +1,5 @@
-let goober = (\gooboo . 
-  (match gooboo with 
+let x = (\y . 
+  (match y with 
     (i -> i, 
      b -> b))) in
-((goober (inl 5)), 10)
+((x (inl 5)), 10)
