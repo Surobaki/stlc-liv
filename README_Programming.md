@@ -15,29 +15,13 @@ You will need:
 
 ### Preparing the environment
 
-First, you will want to extract the provided compressed archives into the same folder, so that this folder structure can be seen:
+First, extract the provided archive into its own directory. Within the directory run `docker image build -t ntextual .`, which will build a Docker image using the local Dockerfile (network connection required) and tag it as `ntextual`.
 
-```
-. (root folder)
-│
-├── Artifact
-│   ├─ bin
-│   ├─ lib
-│   ├─ dune-project
-│   ├─ LICENSE
-│   ├─ Makefile
-│   └─ test
-├── Dockerfile
-└── README
-```
-
-Within the root directory run `docker image build -t ntextual .`, which will build a Docker image using the local Dockerfile (network connection required) and tag it as `ntextual`.
-
-The development environment is almost ready. You may now run `docker container run -it ntextual /bin/bash`, which should position you in an interactive bash session within the container. You will be dropped in `/usr/local/ntextual` where you can find the folder `artifact` (copied in from `Artifact`).
+The development environment is almost ready. You may now run `docker container run -it ntextual /bin/bash`, which should position you in an interactive bash session within the container. You will be dropped in `/usr/local/ntextual` where you can find a copy of the necessary source code.
 
 ### Building and running the program
 
-To build the OCaml executable, you may use the `Makefile` provided within the artifact's subdirectory within the container. Running `make` or `make all` will build the executable and link to a file called `main` in the artifact's subdirectory. You may run `make clean` to remove all build files.
+To build the OCaml executable, you may use the `Makefile` provided within the artifact's directory in the container. Running `make` will build the executable and link to a file called `main` in the artifact's subdirectory. If necessary, you may run `make clean` to remove all build files.
 
 Below is a quick explanation of the simple CLI.
 
@@ -90,10 +74,7 @@ The `tcp` test simulates a TCP handshake and uses dummy functions. Since the dum
 
 ## Troubleshooting & inspecting code
 
-All the code for the programming language with typechecker can be found in `artifact/lib` and `artifact/bin`. In `artifact/bin` is just the CLI frontend, while `artifact/lib` contains most of the work. We will continue by omitting the prefix `artifact/`.
-
-> [!TIP]
-> If you make changes to `Artifact` (upper-case, on your host machine), the changes will not propagate to your Docker container until you rebuild the image and start a new container based on it.
+All the code for the programming language with typechecker can be found in `lib` and `bin`. The CLI frontend is in `bin`, while `lib` contains most of the work.
 
 The core language definitions like terms and types are in `lib/ast.ml`. The full pipeline from typechecking through unification is in `lib/cctx_typechecker.ml`. The lexer, written using `ocamllex`, arises from `lib/lexer.mll`. The parser, written using `menhir`, arises from `lib/parser.mly`. To use in the frontend, parsing is wrapped with helper functions in `lib/parse_wrapper.ml`.
 
