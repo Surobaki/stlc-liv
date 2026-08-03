@@ -53,18 +53,18 @@ The program will inform you of all the files given to the typechecker ("for `tes
 
 Provided in the `test` subfolder are multiple text files. Below is a table of expected outcomes for each file and substructural base.
 
-| Test Name      | Unrestricted | Linear | Mixed | Affine | Relevant | Expected Type |
-|---------------:|:------------:|:------:|:-----:|:------:|:--------:|--------------:|
-| pcf-terms-1    | ✅ | ✅ | ✅ | ✅ | ✅ | Int |
-| pcf-terms-2    | ✅ | ✅ | ✅ | ✅ | ✅ | Int |
-| pcf-terms-3    | ✅ | ✅ | ✅ | ✅ | ✅ | Int * Int |
-| pcf-terms-4    | ✅ | ❎ | ✅ | ❎ | ❎ | Int |
-| simple-sess    | ✅ | ✅ | ✅ | ✅ | ✅ | Bool |
-| shopper        | ✅ | ✅ | ✅ | ✅ | ✅ | Int |
-| comm-violation | ❎ | ❎ | ❎ | ❎ | ❎ | N/A |
-| tcp            | ✅ | ❎ | ✅ | ❎ | ❎ | Bool |
+| Test Name       | Unrestricted | Linear | Mixed | Affine | Relevant | Expected Type |
+|----------------:|:------------:|:------:|:-----:|:------:|:--------:|--------------:|
+| base-terms-1    | ✅ | ✅ | ✅ | ✅ | ✅ | Int |
+| base-terms-2    | ✅ | ✅ | ✅ | ✅ | ✅ | Int |
+| base-terms-3    | ✅ | ✅ | ✅ | ✅ | ✅ | Int * Int |
+| base-terms-4    | ✅ | ❎ | ✅ | ❎ | ❎ | Int |
+| simple-sess     | ✅ | ✅ | ✅ | ✅ | ✅ | Bool |
+| shopper         | ✅ | ✅ | ✅ | ✅ | ✅ | Int |
+| comm-violation  | ❎ | ❎ | ❎ | ❎ | ❎ | N/A |
+| tcp             | ✅ | ❎ | ✅ | ❎ | ❎ | Bool |
 
-The `pcf-terms` test is a simple test for the core computational component of the calculus. The first three should succeed regardless of base, but `pcf-terms-4` fails in linear, affine, and relevant. This is because `z` is unused and `y` may be used twice in one branch of computation.
+The `base-terms` test is a simple test for the core computational component of the calculus. The first three should succeed regardless of substructural base, but `base-terms-4` fails in linear, affine, and relevant. This is because `z` is unused and `y` may be used twice in one branch of computation.
 
 The `simple-sess` and `shopper` are both simple tests for session types. Since variable usage is linear, both are expected to typecheck correctly for all bases.
 
