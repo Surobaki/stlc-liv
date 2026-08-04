@@ -38,22 +38,32 @@ let input_files =
   let doc = "Read input from $(docv)." in
   Arg.(value & pos_all filepath [] & info [] ~doc ~docv:"INFILE")
 
+let maybe_check lb tm filename = try Either.Left (finalCheck lb tm) with 
+  | (Type_error msg) -> 
+    Either.Right (Format.asprintf "Failed typechecking %s. Reason: %s" filename msg)
+
 (* Wrapper for type checking *)
 let typecheck_wrapper ((lb, o, i) : (linearityBase * string * string list)) : int =
-  if List.compare_length_with i 0 = 0 then exit 2 else
+  if List.compare_length_with i 0 = 0 then (Format.eprintf "No inputs provided. Shutting down.@."; exit 2) else
   let parsed_files = List.map parse_file i in
-  let checked_files = List.map (finalCheck lb) parsed_files in
-  let out_string = 
-    List.map2 
-    (fun inFile checked -> 
-      Format.(asprintf "@[Typechecking results for %s in %a:@.@[%a@]@]" inFile pp_linearityBase lb pp_tcOut checked)) 
-    i checked_files in
-  let final_string = String.concat "\n" out_string in
+  let maybe_checked = 
+    List.fold_right2 
+    (fun filename parsed out -> 
+      (filename, maybe_check lb parsed filename) :: out) 
+    i parsed_files [] in
+  let final_string = 
+    List.fold_right 
+    (fun (filename, checked_file) out -> 
+      match checked_file with 
+      | Either.Left check_out -> String.cat (Format.asprintf "Typechecking results for %s:@.@[%a@]" filename pp_tcOut check_out) 
+                                (String.cat "\n" out)
+      | Either.Right err_msg -> String.cat err_msg (String.cat "\n" out)) 
+    maybe_checked "" in
   match o with
-  | "" -> print_string final_string; 0
+  | "" -> print_string @@ String.trim final_string; 0
   | path -> 
     let channel = open_gen [Open_wronly; Open_creat] 0o664 path in
-    output_string channel final_string; close channel; 0
+    output_string channel (String.trim final_string); close channel; 0
 
 let typecheck_term = Term.(
   const typecheck_wrapper $ 

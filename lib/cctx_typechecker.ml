@@ -7,12 +7,12 @@ let _OP_ARG_ERR = Errors.Type_error
 let _NONSENS_ERR = Errors.Type_error 
   ("I am unsure how you managed to get here.") 
 let _MERGE_EMPTY_VALUES = Errors.Type_error 
-  ("Found two distinct type bindings in the type requirements that 
-    have no types associated with them. Something must have 
-    gone terribly wrong.")
+  (String.cat "Found two distinct type bindings in the type requirements that "
+   (String.cat "have no types associated with them. Something must have "
+    "gone terribly wrong."))
 let _LINMERGE_VARIABLE_REUSE = Errors.Type_error 
-  ("Found duplicate type bindings when trying to merge contexts. 
-    Are you sure you're using them linearly?")
+  (String.cat "Found duplicate type bindings when trying to merge contexts. "
+   "Are you sure you're using them linearly?")
 let _LINMERGE_DIFFERING_BRANCH = Errors.Type_error
   ("Found two branches of control flow statements that do not have 
     matching variable-type assignments. Make sure both branches are linear.")
@@ -21,8 +21,8 @@ let _LINCHECK_VAR_NOT_FOUND = Errors.Type_error
 let _UNIFICATION_ERROR_INF_LOOP = Errors.Type_error 
   ("Stumbled into infinite loop of type variables during unification.")
 let _UNIFICATION_ERROR_BASE_ARROW = Errors.Type_error 
-  ("Found a unification of a base type with an arrow type.
-    Non-functional applications perhaps?")
+  (String.cat "Found a unification of a base type with an arrow type. "
+    "Non-functional applications perhaps?")
 let _UNIFICATION_ERROR_INCOMPAT_BASE = Errors.Type_error 
   ("Found a unification that attempts to unify incompatible base types.")
 let _UNIFICATION_ERROR_OTHER = Errors.Type_error 
