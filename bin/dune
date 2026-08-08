@@ -1,5 +1,5 @@
 (executable
  (public_name Ntextual)
  (name main)
- (libraries CoreLang cmdliner)
+ (libraries CoreLang cmdliner printbox printbox-text)
 )

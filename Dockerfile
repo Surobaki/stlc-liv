@@ -11,7 +11,7 @@ COPY --chown=opam dune-project /usr/local/ntextual
 
 RUN <<EOF
 opam update --yes
-opam install --yes dune menhir cmdliner
+opam install --yes dune menhir cmdliner printbox printbox-text
 EOF
 
 CMD ["/bin/bash"]

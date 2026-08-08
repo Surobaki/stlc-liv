@@ -23,6 +23,8 @@
    dune
    menhir
    cmdliner
+   printbox
+   printbox-text
    )
  (tags
   (topics pl pldi stlc "lambda calculus" typechecker interpreter)))
