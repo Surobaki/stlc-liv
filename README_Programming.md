@@ -26,13 +26,13 @@ To build the OCaml executable, you may use the `Makefile` provided within the ar
 Below is a quick explanation of the simple CLI.
 
 ```
-./main -b lin         -o output.txt       test/pcf-terms-1.txt test/pcf-terms-2.txt
-       └┬───┘         └─┬─────────┘       └─┬─────────────────────────────────────┘
-       -b or --base    -o or --outfile     inputs (filepaths) to source code
-       one of: lin ;   takes a file path
-       unr ; mix ; 
-       aff ; rel .
-       Default: mix.
+./main typecheck   -b lin         -o output.txt       test/pcf-terms-1.txt test/pcf-terms-2.txt
+       └┬──────┘   └┬───┘         └─┬─────────┘       └─┬─────────────────────────────────────┘
+       command     -b or --base    -o or --outfile     inputs (filepaths) to source code
+       typecheck   one of: lin ;   takes a file path
+       OR          unr ; mix ; 
+       testsuite   aff ; rel .
+                   Default: mix.
 ```
 
 ### Interpreting results
@@ -63,6 +63,8 @@ Provided in the `test` subfolder are multiple text files. Below is a table of ex
 | shopper         | ✅ | ✅ | ✅ | ✅ | ✅ | Int |
 | comm-violation  | ❎ | ❎ | ❎ | ❎ | ❎ | N/A |
 | tcp             | ✅ | ❎ | ✅ | ❎ | ❎ | Bool |
+
+To reproduce this table (minus expected types), run `./main testsuite`. To reproduce individual results, use `./main typecheck` as shown above.
 
 The `base-terms` test is a simple test for the core computational component of the calculus. The first three should succeed regardless of substructural base, but `base-terms-4` fails in linear, affine, and relevant. This is because `z` is unused and `y` may be used twice in one branch of computation.
 

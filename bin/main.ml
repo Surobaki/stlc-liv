@@ -99,7 +99,7 @@ let testsuite_box =
   Box.(
     frame @@ grid ~bars:true 
     (transpose @@ Array.of_list @@ List.concat [
-      [Array.of_list @@ List.concat [[text "Structural Base"]; List.map text _ALL_TESTS]; ];
+      [Array.of_list @@ List.concat [[text "Filename"]; List.map text _ALL_TESTS]; ];
       List.map 
         (fun lb -> 
           Array.of_list @@ List.concat 
