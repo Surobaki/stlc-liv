@@ -1,6 +1,8 @@
 # Splitting is Stressful but Merging is Manageable
 
-This artifact supports the claims of the companion paper [Splitting is Stressful but Merging is Manageable: Co-contextual Typing for Substructural and Session Types]() by O. Weston and S. Fowler.
+This artifact supports the claims of the companion paper [Splitting is Stressful but Merging is Manageable: Co-contextual Typing for Substructural and Session Types](https://programming-31-26.hotcrp.com/doc/programming-31-26-paper5.pdf) by O. Weston and S. Fowler.
+
+The SHA256 sum of the provided `ntextual.zip` is `278911c9cfbf6ca16be4ed4be4a69e9d1993eebb6c8d26ff6de6dd54d045375b`.
 
 ## Overview
 
