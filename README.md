@@ -28,8 +28,8 @@ To build the OCaml executable, you may use the `Makefile` provided within the ar
 Below is a quick explanation of the simple CLI.
 
 ```
-./main typecheck   -b lin         -o output.txt       test/pcf-terms-1.txt test/pcf-terms-2.txt
-       └┬──────┘   └┬───┘         └─┬─────────┘       └─┬─────────────────────────────────────┘
+./main typecheck   -b lin         -o output.txt       test/base-terms-1.txt test/base-terms-2.txt
+       └┬──────┘   └┬───┘         └─┬─────────┘       └─┬───────────────────────────────────────┘
        command     -b or --base    -o or --outfile     inputs (filepaths) to source code
        typecheck   one of: lin ;   takes a file path
        OR          unr ; mix ; 
