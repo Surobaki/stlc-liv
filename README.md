@@ -2,7 +2,7 @@
 
 This artifact supports the claims of the companion paper [Splitting is Stressful but Merging is Manageable: Co-contextual Typing for Substructural and Session Types](https://programming-31-26.hotcrp.com/doc/programming-31-26-paper5.pdf) by O. Weston and S. Fowler.
 
-The SHA256 sum of the provided `ntextual.zip` is `278911c9cfbf6ca16be4ed4be4a69e9d1993eebb6c8d26ff6de6dd54d045375b`.
+The SHA256 sum of the provided artifact image `ntextual-image.tar.xz` is `ee1861a09251176de8dff4999f8a8df61c81c7da3258acc0aac14df816a24948`.
 
 ## Overview
 
@@ -10,14 +10,15 @@ The artifact, codenamed **ntextual**, provides a co-contextual programming langu
 
 ## Getting started
 
-You will need:
-
-1. an internet connection,
-2. Docker engine installed (untested on Podman).
+You will need Docker engine installed (untested on Podman) to run the image, and you will need `xz` to uncompress the Docker image.
 
 ### Preparing the environment
 
-First, extract the provided archive into its own directory. Within the directory run `docker image build -t ntextual .`, which will build a Docker image using the local Dockerfile (network connection required) and tag it as `ntextual`.
+1. Download the given Docker image `ntextual-image.tar.xz` into your directory of choice, and navigate the shell into it.
+2. Decompress the `.tar.xz` image into `ntextual-image.tar` with `xz -dc ntextual-image.tar.xz > ntextual-image.tar`.
+3. Load the `.tar` image into the Docker runtime with `docker load -i ntextual-image.tar`.
+
+Alternatively, given an internet connection and no `.tar.xz` image file, this setup can be ran by building the provided Dockerfile with `docker image build -t ntextual .` ran in the root directory of the artifact.
 
 The development environment is almost ready. You may now run `docker container run -it ntextual /bin/bash`, which should position you in an interactive bash session within the container. You will be dropped in `/usr/local/ntextual` where you can find a copy of the necessary source code.
 
