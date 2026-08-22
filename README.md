@@ -61,9 +61,9 @@ Provided in the `test` subfolder are multiple text files. Below is a table of ex
 | base-terms-2    | ✅ | ✅ | ✅ | ✅ | ✅ | Int |
 | base-terms-3    | ✅ | ✅ | ✅ | ✅ | ✅ | Int * Int |
 | base-terms-4    | ✅ | ❎ | ✅ | ❎ | ❎ | Int |
-| simple-sess     | ✅ | ✅ | ✅ | ✅ | ✅ | Bool |
-| shopper         | ✅ | ✅ | ✅ | ✅ | ✅ | Int |
 | comm-violation  | ❎ | ❎ | ❎ | ❎ | ❎ | N/A |
+| shopper         | ✅ | ✅ | ✅ | ✅ | ✅ | Int |
+| simple-sess     | ✅ | ✅ | ✅ | ✅ | ✅ | Bool |
 | tcp             | ✅ | ❎ | ✅ | ❎ | ❎ | Bool |
 
 To reproduce this table (minus expected types), run `./main testsuite`. To reproduce individual results, use `./main typecheck` as shown above.
