@@ -544,7 +544,7 @@ let rec isUnrestr (constrTyp : typ) : bool option =
 let isUnrestrWeak (constrTyp : typ) : bool =
   match isUnrestr constrTyp with
   | Some b -> b
-  | None -> false
+  | None -> true
 
 let linearityCheck (constraintSubjects : typ list) : typ list =
   List.filter isUnrestrWeak constraintSubjects
@@ -573,7 +573,7 @@ let rec isSess (constrTyp : typ) : bool option =
 let isSessWeak (constrTyp : typ) : bool =
   match isSess constrTyp with
   | Some b -> b
-  | None -> false
+  | None -> true
 
 let sessionCheck (constraintSubjects : typ list) : typ list =
   List.filter isSessWeak constraintSubjects
