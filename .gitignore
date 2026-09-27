@@ -95,3 +95,6 @@ lib/stlc_lexrules.ml
 
 # OPAM
 Ntextual.opam
+
+# artifact reviews
+artifact-evaluation
