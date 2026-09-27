@@ -358,13 +358,13 @@ let rec ccTc (l : linearityBase) (tm : term)
   | TCase (tmScrutinee, tm1Bind, tm1, tm2Bind, tm2) ->
     let (tmScrutTyp, tmScrutReq, tmScrutCst) = typeCheck tmScrutinee in
     let (tm1Typ, tm1Req, tm1Cst) = typeCheck tm1 in
-    let (_, tm2Req, tm2Cst) = typeCheck tm2 in
+    let (tm2Typ, tm2Req, tm2Cst) = typeCheck tm2 in
     let (sum1Typ, sum1Cst) = checkVariable tm1Bind tm1Req in
     let (sum2Typ, sum2Cst) = checkVariable tm2Bind tm2Req in
     let (brMergeReq, brMergeCst) = 
       mergeBranch (tm1Req /< tm1Bind) (tm2Req /< tm2Bind) in
     let (seqMergeReq, seqMergeCst) = mergeSequence brMergeReq tmScrutReq in
-    let fixedCst = (%+) ((%*) (Equal (sum1Typ, sum2Typ))) 
+    let fixedCst = (%+) ((%*) (Equal (tm1Typ, tm2Typ))) 
                         ((%*) (Equal (tmScrutTyp, Sum (sum1Typ, sum2Typ)))) in
     let outCst = tm1Cst %+ tm2Cst %+ sum1Cst %+ sum2Cst %+ tmScrutCst
                         %+ brMergeCst %+ seqMergeCst %+ fixedCst in
