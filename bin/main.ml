@@ -61,6 +61,7 @@ let maybe_check lb tm filename = try Either.Left (finalCheck lb tm) with
 
 (* Wrapper for type checking *)
 let typecheck_wrapper ((lb, o, i) : (linearityBase * string * string list)) : int =
+  let err_mut = ref 0 in
   if List.compare_length_with i 0 = 0 then (Format.eprintf "No inputs provided. Shutting down.@."; exit 2) else
   let parsed_files = List.map parse_file i in
   let maybe_checked = 
@@ -74,14 +75,14 @@ let typecheck_wrapper ((lb, o, i) : (linearityBase * string * string list)) : in
       match checked_file with 
       | Either.Left check_out -> String.cat (Format.asprintf "Typechecking results for %s:@.@[%a@]" filename pp_tcOut check_out) 
                                 (String.cat "\n" out)
-      | Either.Right err_msg -> String.cat err_msg (String.cat "\n" out)) 
+      | Either.Right err_msg -> err_mut := 1; String.cat err_msg (String.cat "\n" out)) 
     maybe_checked "" in
   let writing_params = [Open_wronly; Open_creat; Open_text] in
   match o with
-  | "" -> print_string @@ String.trim final_string; 0
+  | "" -> print_string @@ String.trim final_string; !err_mut
   | path -> 
     let channel = open_gen writing_params 0o664 path in
-    output_string channel (String.trim final_string); close channel; 0
+    output_string channel (String.trim final_string); close channel; !err_mut
 
 let testsuite_box =
   let input_data = BaseMap.fold 
