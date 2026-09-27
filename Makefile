@@ -11,4 +11,4 @@ clean:
 	@dune clean
 	@unlink main
 
-.PHONY: all clean
+.PHONY: all clean build
