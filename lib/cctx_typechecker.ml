@@ -474,21 +474,16 @@ let rec ccTc (l : linearityBase) (tm : term)
 (* Unification section *)
 type substitution = binder * typ
 
-let rec occursCheck (t : typ) (checkSubject : typ) : bool = 
-  match checkSubject with
-  | LinearArrow (_, sbj2) | Arrow (_, sbj2) -> 
-           if sbj2 = t then true
-           else occursCheck t sbj2
-  | Session sbj -> occursCheckSess t sbj
-  | sbj -> t = sbj
-and occursCheckSess (t : typ) (checkSubject : sessTyp) : bool =
-  match t with
-  | TypeVar _ ->
-    (match checkSubject with
-    | Send (head, Session cont) | Receive (head, Session cont) -> head = t 
-                                                  || occursCheckSess t cont
+(* The occursCheck below was suggested by Programming'26.3 
+   Artifact Evaluation Reviewer 3. *)
+let rec occursCheck (t : typ) (checkSubject : typ) : bool =
+  t = checkSubject || (match checkSubject with
+    | Product (s0, s1) | Sum (s0, s1) 
+    | Arrow (s0, s1) | LinearArrow (s0, s1)
+    | Session (Send (s0, s1) | Receive (s0, s1)) 
+      -> occursCheck t s0 || occursCheck t s1
+    | Dual s0 -> occursCheck t s0
     | _ -> false)
-  | _ -> false
     
 let recoverSession (t : typ) : sessTyp = 
   match t with 
