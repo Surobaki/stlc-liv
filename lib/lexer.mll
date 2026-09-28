@@ -38,11 +38,6 @@ rule tokenise = parse
   | "inr" { INR }
   | "send" { SEND }
   | "receive" { RECEIVE }
-  | "endbang" { ENDBANG }
-  | "endquery" { ENDQUERY }
-  | "Int" { TYINT }
-  | "Bool" { TYBOOL }
-  | "Unit" { UNIT }
   | "let" { LET }
   | "in" { IN }
   | "if" { IF }
@@ -50,7 +45,6 @@ rule tokenise = parse
   | "else" { ELSE }
   (* Multi-character symbols *)
   | "->" { ARROW }
-  | "-@" { LOLLI }
   | ">=" { GE }
   | "==" { EQ }
   | "!=" { NEQ }
@@ -69,11 +63,7 @@ rule tokenise = parse
   | '\\' { LAMBDA }
   | '=' { EQUALS }
   | ';' { SEMICOLON }
-  | ':' { COLON }
   | '.' { DOT }
-  | '!' { BANG }
-  | '?' { QSTNMARK }
-  | '~' { TILDE }
   | eof { EOF }
   (* Variables and integer literals *)
   | def_id as var { VARIABLE var }

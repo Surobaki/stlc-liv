@@ -11,11 +11,8 @@
 %token LPAREN RPAREN
 
 (* Type construction grammar *)
-%token TYINT TYBOOL UNIT
-%token ARROW LOLLI
-%token BANG QSTNMARK
-%token COLON DOT
-%token ENDBANG ENDQUERY
+%token ARROW 
+%token DOT
 %token LANGLE RANGLE
 
 (* Common language constructions *)
@@ -33,7 +30,6 @@
 (* Session typing constructions *)
 %token SEND RECEIVE
 %token FORK WAIT
-%token TILDE
 
 (* Arithmetic and relational binary_operations, 
    as well as PLUS and STAR for types.
@@ -41,25 +37,14 @@
 %token PLUS MINUS STAR FSLASH
 %token GE LE EQ NEQ
 
-(* Precedence anchor; session types bind tighter than all type operators *)
-%token SESS_PREC
-
 (* All precedence preferences *)
-%nonassoc TILDE
 %nonassoc GE LE LANGLE RANGLE EQ NEQ
-
-%right ARROW LOLLI
 
 %left MINUS PLUS
 %left FSLASH STAR
 
-(* Sessions bind tighter than STAR, PLUS, ARROW, LOLLI *)
-%nonassoc SESS_PREC
-
 (* Assigning OCaml types to nonterminals *)
 %type <term> expr binary_operation app fact
-%type <typ> ty base_ty
-%type <sessTyp> sess_ty
 
 (* Start parsing *)
 %start <term> expr_main
@@ -127,28 +112,6 @@ fact:
   | LPAREN e1 = expr COMMA e2 = expr RPAREN { TProduct (e1, e2) }
   (* Parenthesised expression *)
   | LPAREN e = expr RPAREN { e }
-
-(* Type parser *)
-ty:
-  | UNIT { Unit }
-  | LPAREN t = ty RPAREN { t }
-  | t1 = ty ARROW t2 = ty { Arrow (t1, t2) }
-  | t1 = ty LOLLI t2 = ty { LinearArrow (t1, t2) }
-  | t1 = ty PLUS t2 = ty { Sum (t1, t2) }
-  | t1 = ty STAR t2 = ty { Product (t1, t2) }
-  | TILDE t = ty { Dual t }
-  | t = base_ty { t }
-  | t = sess_ty { Session t }
-
-sess_ty:
-  | ENDBANG { SendEnd }
-  | ENDQUERY { ReceiveEnd }
-  | BANG t1 = ty DOT t2 = ty { Send (t1, t2) } %prec SESS_PREC
-  | QSTNMARK t1 = ty DOT t2 = ty { Receive (t1, t2) } %prec SESS_PREC
-
-base_ty:
-  | TYINT  { Base Integer }
-  | TYBOOL { Base Boolean }
 
 (* Entrypoint *)
 expr_main:
