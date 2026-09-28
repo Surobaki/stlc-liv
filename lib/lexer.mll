@@ -43,7 +43,6 @@ rule tokenise = parse
   | "Int" { TYINT }
   | "Bool" { TYBOOL }
   | "Unit" { UNIT }
-  | "fix" { FIX }
   | "let" { LET }
   | "in" { IN }
   | "if" { IF }

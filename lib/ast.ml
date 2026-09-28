@@ -59,7 +59,6 @@ type term =
   | TLet of binder * term * term
   | TIf of term * term * term
   | TLinAbstract of binder * term
-  | TFix of term * typ
   (* Unit introduction and elimination *)
   | TUnit
   | TSequence of term * term
@@ -204,10 +203,6 @@ let rec pp_term (out : Format.formatter) (t : term) =
       pp_binder binder
       pp_term tmBound
       pp_term tmCore
-  | TFix (tm, typ) -> 
-      Format.fprintf out "(FIX@ %a@ :@ %a)"
-      pp_term tm
-      pp_typ typ
   | TIf (tmCnd, tm1, tm2) -> 
       Format.fprintf out "(IF@ %a@ THEN@ %a@ ELSE@ %a)"
       pp_term tmCnd

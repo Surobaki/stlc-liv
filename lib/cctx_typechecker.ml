@@ -403,13 +403,6 @@ let rec ccTc (l : linearityBase) (tm : term)
     let inputCst = tm1Cst %+ tm2Cst %+ tm3Cst in
     let outCst = ifCst %+ inputCst %+ cst123 in
     (tm2Typ, req123, outCst)
-  | TFix (tm, search) -> 
-    let (_, tmReq, tmCst) = typeCheck tm in
-    let freshTyp = TypeVar (TyVar.fresh ()) in
-    let newCst = (%*) (Equal (search, Arrow (freshTyp, freshTyp))) in
-    let unrCst = genUnrestricted tmReq in
-    let outCst = newCst %+ tmCst %+ unrCst in
-    (freshTyp, tmReq, outCst)
   | TSend (tm1, tm2) ->
     let (tm1Typ, tm1Req, tm1Cst) = typeCheck tm1 in
     let (tm2Typ, tm2Req, tm2Cst) = typeCheck tm2 in

@@ -20,7 +20,6 @@
 
 (* Common language constructions *)
 %token IF THEN ELSE
-%token FIX
 %token SEMICOLON
 %token COMMA
 %token EOF
@@ -90,8 +89,6 @@ expr:
   (* Let bindings *)
   | LET bnd = VARIABLE EQUALS bndTm = expr IN coreTm = expr
     { TLet (bnd, bndTm, coreTm) }
-  (* Fixed points *)
-  | FIX e = expr COLON t = ty { TFix (e, t) }
   (* Conditional flow *)
   | IF e1 = expr THEN e2 = expr ELSE e3 = expr { TIf (e1, e2, e3) }
   (* Sequencing *)
