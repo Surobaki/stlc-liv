@@ -2,7 +2,7 @@
 
 This artifact supports the claims of the companion paper [Splitting is Stressful but Merging is Manageable: Co-contextual Typing for Substructural and Session Types](https://programming-31-26.hotcrp.com/doc/programming-31-26-paper5.pdf) by O. Weston and S. Fowler.
 
-The SHA256 sum of the provided artifact image `ntextual-image.tar.xz` is `ee1861a09251176de8dff4999f8a8df61c81c7da3258acc0aac14df816a24948`.
+The MD5 sum of the provided artifact image `ntextual-image.tar.xz` is `40bad68586bc5fa0c8e76c2b7025eb6b`.
 
 ## Overview
 
